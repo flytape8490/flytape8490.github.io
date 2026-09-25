@@ -72,7 +72,11 @@ window.drawRulers = function() {
     vCtx.textAlign = "center";
     vCtx.lineWidth = 1;
     
-    const originY = AppState.coreWallBounds ? AppState.coreWallBounds.top * zoom : 0;
+    // The vertical ruler spans the full height of the workspace, but the canvas is pushed down
+    // by the height of the horizontal ruler. We add that offset to align the 0 point correctly.
+    const vOffset = hRuler.offsetHeight || 24; 
+    const originY = (AppState.coreWallBounds ? AppState.coreWallBounds.top * zoom : 0) + vOffset;
+    
     const startInchY = Math.floor(-originY / ppi);
     const endInchY = Math.ceil((vCanvas.clientHeight - originY) / ppi);
     
