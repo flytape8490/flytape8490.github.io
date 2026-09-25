@@ -8,11 +8,15 @@ document.getElementById('btn-wall').addEventListener('click', () => {
 
 document.getElementById('btn-load-new-wall').addEventListener('click', () => {
     document.getElementById('change-wall-modal').style.display = 'none';
+    AppState.isRedefiningWall = false;
+    AppState.savedWallPolygon = null;
+    AppState.savedWallDimensions = null;
     document.getElementById('file-wall').click();
 });
 
 document.getElementById('btn-redefine-wall').addEventListener('click', () => {
     document.getElementById('change-wall-modal').style.display = 'none';
+    AppState.isRedefiningWall = true;
     openWallModalWithImage(AppState.rawWallImg);
 });
 
@@ -31,6 +35,7 @@ document.getElementById('file-wall').addEventListener('change', (e) => {
                 return;
             }
             
+            AppState.isRedefiningWall = false;
             AppState.rawWallImg = img;
             openWallModalWithImage(img);
         });
@@ -43,6 +48,14 @@ function openWallModalWithImage(img) {
     wallModal.style.display = 'flex';
     wallScaleCanvas.setWidth(wallScaleCanvasContainer.clientWidth);
     wallScaleCanvas.setHeight(wallScaleCanvasContainer.clientHeight);
+    
+    if (AppState.isRedefiningWall && AppState.savedWallDimensions) {
+        document.getElementById('input-wall-w').value = AppState.savedWallDimensions.w;
+        document.getElementById('input-wall-h').value = AppState.savedWallDimensions.h;
+    } else {
+        document.getElementById('input-wall-w').value = '';
+        document.getElementById('input-wall-h').value = '';
+    }
     
     const scale = Math.min(
         (wallScaleCanvas.width * 0.8) / img.width, 
@@ -72,14 +85,22 @@ function startWallPerspectiveMode() {
     const imgW = AppState.wallMaskImage.getScaledWidth();
     const imgH = AppState.wallMaskImage.getScaledHeight();
 
-    const padX = imgW * 0.1;
-    const padY = imgH * 0.1;
-    const points = [
-        { x: imgL + padX, y: imgT + padY }, 
-        { x: imgL + imgW - padX, y: imgT + padY }, 
-        { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
-        { x: imgL + padX, y: imgT + imgH - padY } 
-    ];
+    let points;
+    if (AppState.isRedefiningWall && AppState.savedWallPolygon) {
+        points = AppState.savedWallPolygon.map(p => ({
+            x: imgL + (p.x * AppState.wallMaskImage.scaleX),
+            y: imgT + (p.y * AppState.wallMaskImage.scaleY)
+        }));
+    } else {
+        const padX = imgW * 0.1;
+        const padY = imgH * 0.1;
+        points = [
+            { x: imgL + padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
+            { x: imgL + padX, y: imgT + imgH - padY } 
+        ];
+    }
 
     AppState.wallCorners = points.map((p, index) => {
         const circle = new fabric.Circle({
@@ -153,6 +174,9 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
         x: (c.left - leftOff) / scaleX,
         y: (c.top - topOff) / scaleY
     }));
+
+    AppState.savedWallPolygon = absolutePoints.map(p => ({ x: p.x, y: p.y }));
+    AppState.savedWallDimensions = { w: inchesW, h: inchesH };
 
     const xs = absolutePoints.map(p => p.x);
     const ys = absolutePoints.map(p => p.y);

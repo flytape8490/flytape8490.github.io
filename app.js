@@ -113,33 +113,141 @@ window.resizeCanvas = function() {
 };
 window.addEventListener('resize', window.resizeCanvas);
 
+// Drag and Drop Logic
+const canvasContainer = document.getElementById('canvas-container');
+canvasContainer.addEventListener('dragover', (e) => {
+    e.preventDefault(); 
+});
+canvasContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    if (!id) return;
+    const trayItem = AppState.trayItems[id];
+    if (!trayItem) return;
+
+    const rect = canvasContainer.getBoundingClientRect();
+    const zoom = canvas.getZoom();
+    const pointerX = (e.clientX - rect.left) / zoom;
+    const pointerY = (e.clientY - rect.top) / zoom;
+
+    fabric.Image.fromURL(trayItem.finalDataUrl, (img) => {
+        const targetPixelWidth = trayItem.physicalW * AppState.pixelsPerInch;
+        const targetPixelHeight = trayItem.physicalH * AppState.pixelsPerInch;
+        
+        img.set({
+            scaleX: targetPixelWidth / img.width,
+            scaleY: targetPixelHeight / img.height,
+            left: pointerX - (targetPixelWidth / 2),
+            top: pointerY - (targetPixelHeight / 2),
+            hasControls: false, 
+            hasBorders: true,   
+            borderColor: window.getThemeColor('primary'),
+            customData: { shape: trayItem.shape, trayId: id } 
+        });
+        
+        canvas.add(img);
+        canvas.setActiveObject(img);
+    });
+});
+
+// Dynamic Context Menu Logic
 const ctxMenu = document.getElementById('context-menu');
 
+window.hideContextMenu = function() {
+    ctxMenu.style.display = 'none';
+};
+
+window.addEventListener('click', () => window.hideContextMenu());
+
+window.showContextMenu = function(e, type, target) {
+    e.preventDefault();
+    ctxMenu.innerHTML = '';
+    
+    if (type === 'wall-art') {
+        const trayId = target.customData.trayId;
+        ctxMenu.innerHTML = `
+            <div class="ctx-item" id="ctx-update">Update Art</div>
+            <div class="ctx-item" id="ctx-delete-selected">Delete Selected</div>
+            <div class="ctx-item" id="ctx-delete-all">Delete All Instances</div>
+        `;
+        document.getElementById('ctx-update').onclick = () => window.openArtUpdate(trayId);
+        document.getElementById('ctx-delete-selected').onclick = () => {
+            const active = canvas.getActiveObjects();
+            active.forEach(obj => canvas.remove(obj));
+            canvas.discardActiveObject();
+            window.updateAlignToolbar();
+        };
+        document.getElementById('ctx-delete-all').onclick = () => window.deleteAllInstances(trayId);
+    } else if (type === 'tray-art') {
+        const trayId = target.dataset.id;
+        ctxMenu.innerHTML = `
+            <div class="ctx-item" id="ctx-update">Update Art</div>
+            <div class="ctx-item" id="ctx-delete-tray">Delete Art</div>
+        `;
+        document.getElementById('ctx-update').onclick = () => window.openArtUpdate(trayId);
+        document.getElementById('ctx-delete-tray').onclick = () => {
+            window.deleteAllInstances(trayId);
+            target.remove();
+            delete AppState.trayItems[trayId];
+            if (Object.keys(AppState.trayItems).length === 0) {
+                document.getElementById('tray-empty-text').style.display = 'block';
+            }
+        };
+    }
+    
+    // Display block first to calculate dimensions
+    ctxMenu.style.display = 'block';
+    
+    const menuWidth = ctxMenu.offsetWidth;
+    const menuHeight = ctxMenu.offsetHeight;
+    
+    let left = e.clientX;
+    let top = e.clientY;
+    
+    // Clamp to window boundaries
+    if (left + menuWidth > window.innerWidth) {
+        left = window.innerWidth - menuWidth;
+    }
+    if (top + menuHeight > window.innerHeight) {
+        top = window.innerHeight - menuHeight;
+    }
+    
+    ctxMenu.style.left = left + 'px';
+    ctxMenu.style.top = top + 'px';
+};
+
 canvas.on('mouse:down', function(options) {
-    if (options.e.button === 2) { 
-        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE') {
+    if (options.e.button === 2 || options.e.button === 3) { 
+        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE' && options.target.customData?.trayId) {
             const active = canvas.getActiveObject();
             if (!active || (active.type === 'activeSelection' && !active.contains(options.target)) || active !== options.target) {
                 canvas.setActiveObject(options.target);
             }
-            ctxMenu.style.display = 'block';
-            ctxMenu.style.left = options.e.clientX + 'px';
-            ctxMenu.style.top = options.e.clientY + 'px';
+            window.showContextMenu(options.e, 'wall-art', options.target);
         } else {
-            ctxMenu.style.display = 'none';
+            window.hideContextMenu();
         }
     } else {
-        ctxMenu.style.display = 'none';
+        window.hideContextMenu();
     }
 });
 
-document.getElementById('ctx-delete').addEventListener('click', () => {
-    const active = canvas.getActiveObjects();
-    active.forEach(obj => canvas.remove(obj));
-    canvas.discardActiveObject();
-    ctxMenu.style.display = 'none';
-    updateAlignToolbar();
+tray.addEventListener('contextmenu', (e) => {
+    if (e.target.classList.contains('tray-item')) {
+        window.showContextMenu(e, 'tray-art', e.target);
+    }
 });
+
+window.deleteAllInstances = function(trayId) {
+    const objects = canvas.getObjects();
+    objects.forEach(obj => {
+        if (obj.customData && obj.customData.trayId === trayId) {
+            canvas.remove(obj);
+        }
+    });
+    canvas.discardActiveObject();
+    window.updateAlignToolbar();
+};
 
 canvas.on('mouse:up', (e) => {
     if (e.target && e.target.isGuide) {
@@ -153,14 +261,14 @@ canvas.on('mouse:up', (e) => {
     }
 });
 
-function updateAlignToolbar() {
+window.updateAlignToolbar = function() {
     const active = canvas.getActiveObjects();
     document.getElementById('align-toolbar').style.display = active.length > 1 ? 'flex' : 'none';
 }
 
-canvas.on('selection:created', updateAlignToolbar);
-canvas.on('selection:updated', updateAlignToolbar);
-canvas.on('selection:cleared', updateAlignToolbar);
+canvas.on('selection:created', window.updateAlignToolbar);
+canvas.on('selection:updated', window.updateAlignToolbar);
+canvas.on('selection:cleared', window.updateAlignToolbar);
 
 function alignObjects(type) {
     const activeSelection = canvas.getActiveObject();
@@ -301,37 +409,6 @@ function startDragGuide(e, type) {
 
 document.getElementById('ruler-h').addEventListener('mousedown', (e) => startDragGuide(e, 'h'));
 document.getElementById('ruler-v').addEventListener('mousedown', (e) => startDragGuide(e, 'v'));
-
-window.addToTray = function(imgDataUrl, physicalW, physicalH, shapeType) {
-    document.getElementById('tray-empty-text').style.display = 'none';
-    
-    const imgEl = document.createElement('img');
-    imgEl.src = imgDataUrl;
-    imgEl.className = 'tray-item';
-    
-    imgEl.addEventListener('click', () => {
-        fabric.Image.fromURL(imgDataUrl, (img) => {
-            const targetPixelWidth = physicalW * AppState.pixelsPerInch;
-            const targetPixelHeight = physicalH * AppState.pixelsPerInch;
-            
-            img.set({
-                scaleX: targetPixelWidth / img.width,
-                scaleY: targetPixelHeight / img.height,
-                left: AppState.logicalWidth / 2 - (targetPixelWidth / 2),
-                top: AppState.logicalHeight / 2 - (targetPixelHeight / 2),
-                hasControls: false, 
-                hasBorders: true,   
-                borderColor: window.getThemeColor('primary'),
-                customData: { shape: shapeType } 
-            });
-            
-            canvas.add(img);
-            canvas.setActiveObject(img);
-        });
-    });
-
-    tray.appendChild(imgEl);
-};
 
 canvas.on('object:moving', (e) => {
     if (AppState.mode !== 'IDLE') return;

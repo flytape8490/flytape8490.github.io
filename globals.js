@@ -27,6 +27,13 @@ const AppState = {
     wallPoly: null,
     wallCorners: [],
     coreWallBounds: null, 
+    savedWallPolygon: null,
+    savedWallDimensions: null,
+    isRedefiningWall: false,
+
+    trayItems: {},
+    editingTrayId: null,
+    currentRawArtSrc: null,
 
     artMaskImage: null,
     currentArtShape: 'rect', 
@@ -90,12 +97,10 @@ function isConvex(pts) {
         if (cp > 0) pos++;
         if (cp < 0) neg++;
     }
-    // If all cross products have the same sign (and non-zero), the polygon is strictly convex
     return pos === 4 || neg === 4; 
 }
 
 window.enforcePolygonBounds = function(target, corners, minBoundX, minBoundY, maxBoundX, maxBoundY) {
-    // Initialize last known good state
     if (target._lastValidX === undefined) {
         target._lastValidX = target.left;
         target._lastValidY = target.top;
@@ -107,7 +112,6 @@ window.enforcePolygonBounds = function(target, corners, minBoundX, minBoundY, ma
     let minY = minBoundY;
     let maxY = maxBoundY;
 
-    // Fast boundary clamping (Prevent edge crossovers)
     if (idx === 0 || idx === 3) {
         maxX = Math.min(corners[1].left, corners[2].left) - 1;
     } else {
@@ -133,20 +137,17 @@ window.enforcePolygonBounds = function(target, corners, minBoundX, minBoundY, ma
     if (newY < minY) newY = minY;
     if (newY > maxY) newY = maxY;
     
-    // Strict Concavity Check: Form test polygon with the proposed move
     const testPts = corners.map(c => {
         if (c === target) return { x: newX, y: newY };
         return { x: c.left, y: c.top };
     });
 
     if (isConvex(testPts)) {
-        // Valid move
         target.left = newX;
         target.top = newY;
         target._lastValidX = newX;
         target._lastValidY = newY;
     } else {
-        // Block the move: revert to the last safely established convex coordinate
         target.left = target._lastValidX;
         target.top = target._lastValidY;
     }

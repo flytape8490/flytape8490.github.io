@@ -3,6 +3,8 @@ document.getElementById('file-art').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
     const reader = new FileReader();
     reader.onload = (event) => {
+        AppState.editingTrayId = null;
+        AppState.currentRawArtSrc = event.target.result;
         fabric.Image.fromURL(event.target.result, (img) => {
             if (!img || !img.width) {
                 alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
@@ -36,8 +38,46 @@ document.getElementById('file-art').addEventListener('change', (e) => {
     e.target.value = ''; 
 });
 
+window.openArtUpdate = function(trayId) {
+    const item = AppState.trayItems[trayId];
+    AppState.editingTrayId = trayId;
+    AppState.currentArtShape = item.shape;
+    updateArtShapeUI();
+
+    if (item.shape === 'circle') {
+        document.getElementById('input-art-diam').value = item.physicalW;
+    } else {
+        document.getElementById('input-art-w').value = item.physicalW;
+        document.getElementById('input-art-h').value = item.physicalH;
+    }
+
+    fabric.Image.fromURL(item.rawImgSrc, (img) => {
+        artModal.style.display = 'flex';
+        artCanvas.setWidth(artCanvasContainer.clientWidth);
+        artCanvas.setHeight(artCanvasContainer.clientHeight);
+        const scale = Math.min(
+            (artCanvas.width * 0.8) / img.width, 
+            (artCanvas.height * 0.8) / img.height
+        );
+        img.scale(scale);
+        img.set({ 
+            left: (artCanvas.width - img.getScaledWidth())/2, 
+            top: (artCanvas.height - img.getScaledHeight())/2, 
+            selectable: false 
+        });
+        AppState.artMaskImage = img;
+        artCanvas.add(AppState.artMaskImage);
+        setupArtPerspectiveMode();
+    });
+};
+
 function setupArtPerspectiveMode() {
-    AppState.currentArtShape = 'rect';
+    if (!AppState.editingTrayId) {
+        AppState.currentArtShape = 'rect';
+        document.getElementById('input-art-w').value = '';
+        document.getElementById('input-art-h').value = '';
+        document.getElementById('input-art-diam').value = '';
+    }
     updateArtShapeUI();
 
     const imgL = AppState.artMaskImage.left;
@@ -45,15 +85,22 @@ function setupArtPerspectiveMode() {
     const imgW = AppState.artMaskImage.getScaledWidth();
     const imgH = AppState.artMaskImage.getScaledHeight();
 
-    const padX = imgW * 0.1;
-    const padY = imgH * 0.1;
-
-    const points = [
-        { x: imgL + padX, y: imgT + padY }, 
-        { x: imgL + imgW - padX, y: imgT + padY }, 
-        { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
-        { x: imgL + padX, y: imgT + imgH - padY } 
-    ];
+    let points;
+    if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
+        points = AppState.trayItems[AppState.editingTrayId].polygonP.map(p => ({
+            x: imgL + (p.x * AppState.artMaskImage.scaleX),
+            y: imgT + (p.y * AppState.artMaskImage.scaleY)
+        }));
+    } else {
+        const padX = imgW * 0.1;
+        const padY = imgH * 0.1;
+        points = [
+            { x: imgL + padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
+            { x: imgL + padX, y: imgT + imgH - padY } 
+        ];
+    }
 
     AppState.artCorners = points.map((p, index) => {
         const circle = new fabric.Circle({
@@ -70,7 +117,6 @@ function setupArtPerspectiveMode() {
 
     renderArtPoly(); 
     
-    // Manage marching ants animation for non-rect shapes
     if (window.marchingAntsInterval) clearInterval(window.marchingAntsInterval);
     window.marchingAntsInterval = setInterval(() => {
         if (AppState.currentArtShape !== 'rect' && AppState.artOvalFill) {
@@ -125,14 +171,12 @@ function renderArtPoly() {
 
         const pathStr = `M ${m0.x} ${m0.y} C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${m1.x} ${m1.y} C ${cp3.x} ${cp3.y} ${cp4.x} ${cp4.y} ${m2.x} ${m2.y} C ${cp5.x} ${cp5.y} ${cp6.x} ${cp6.y} ${m3.x} ${m3.y} C ${cp7.x} ${cp7.y} ${cp8.x} ${cp8.y} ${m0.x} ${m0.y} Z`;
 
-        // Solid white stroke underlayer
         AppState.artOvalStrokeBg = new fabric.Path(pathStr, {
             fill: successFill, stroke: '#ffffff', strokeWidth: 2,
             selectable: false, evented: false
         });
         AppState.artOvalStrokeBg.isArtOvalBg = true;
 
-        // Dashed black stroke foreground
         AppState.artOvalFill = new fabric.Path(pathStr, {
             fill: 'transparent', stroke: '#000000', strokeWidth: 2,
             strokeDashArray: [6, 6], strokeDashOffset: 0,
@@ -279,18 +323,68 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     finalCtx.beginPath();
     if (shapeToApply === 'rect') {
         finalCtx.rect(0, 0, dstW, dstH);
-    } else { // Oval or Circle
+    } else { 
         finalCtx.ellipse(dstW/2, dstH/2, dstW/2, dstH/2, 0, 0, 2*Math.PI);
     }
     finalCtx.closePath();
     finalCtx.clip();
-    
     finalCtx.drawImage(flatCanvas, 0, 0);
+    
+    const finalDataUrl = finalCanvas.toDataURL('image/png');
+    const trayId = AppState.editingTrayId || 'tray_' + Date.now();
+    const rawSrc = AppState.editingTrayId ? AppState.trayItems[AppState.editingTrayId].rawImgSrc : AppState.currentRawArtSrc;
 
-    window.addToTray(finalCanvas.toDataURL('image/png'), physicalW, physicalH, shapeToApply);
+    AppState.trayItems[trayId] = {
+        id: trayId,
+        rawImgSrc: rawSrc,
+        shape: shapeToApply,
+        physicalW: physicalW,
+        physicalH: physicalH,
+        polygonP: P,
+        finalDataUrl: finalDataUrl
+    };
+
+    if (AppState.editingTrayId) {
+        const imgEl = tray.querySelector(`img[data-id="${trayId}"]`);
+        if (imgEl) imgEl.src = finalDataUrl;
+        
+        canvas.getObjects().forEach(obj => {
+            if (obj.customData && obj.customData.trayId === trayId) {
+                obj.setSrc(finalDataUrl, () => {
+                    const targetPixelWidth = physicalW * AppState.pixelsPerInch;
+                    const targetPixelHeight = physicalH * AppState.pixelsPerInch;
+                    obj.set({
+                        scaleX: targetPixelWidth / obj.width,
+                        scaleY: targetPixelHeight / obj.height,
+                        customData: { shape: shapeToApply, trayId: trayId }
+                    });
+                    obj.setCoords();
+                    canvas.requestRenderAll();
+                });
+            }
+        });
+    } else {
+        window.addToTray(trayId);
+    }
     
     closeArtModal();
 });
+
+window.addToTray = function(trayId) {
+    document.getElementById('tray-empty-text').style.display = 'none';
+    
+    const imgEl = document.createElement('img');
+    imgEl.src = AppState.trayItems[trayId].finalDataUrl;
+    imgEl.className = 'tray-item';
+    imgEl.draggable = true;
+    imgEl.dataset.id = trayId;
+    
+    imgEl.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', trayId);
+    });
+
+    tray.appendChild(imgEl);
+};
 
 document.getElementById('btn-cancel-art').addEventListener('click', closeArtModal);
 
@@ -303,6 +397,8 @@ function closeArtModal() {
     AppState.artOvalStrokeBg = null;
     AppState.artOvalFill = null;
     AppState.artCorners = [];
+    AppState.editingTrayId = null;
+    AppState.currentRawArtSrc = null;
     
     document.getElementById('input-art-w').value = '';
     document.getElementById('input-art-h').value = '';

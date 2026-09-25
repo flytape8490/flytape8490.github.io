@@ -142,7 +142,10 @@ input[type="number"] { padding: 6px; border-radius: 4px; border: 1px solid var(-
 #tray-empty-text { color: var(--text-muted); margin: auto; font-size: 14px; }
 .tray-item {
     height: 100%; width: auto; border: 2px solid var(--border-color); border-radius: 4px;
-    cursor: pointer; background: rgba(128,128,128,0.1);
+    cursor: grab; background: rgba(128,128,128,0.1);
+}
+.tray-item:active {
+    cursor: grabbing;
 }
 
 .modal {
