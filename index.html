@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gallery Wall Planner</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <script>
+        function enforcePositive(input) {
+            if (input.value !== '') {
+                let val = parseFloat(input.value);
+                if (isNaN(val)) return;
+                if (val < 1) input.value = Math.max(1, Math.abs(val)) || 1;
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="toolbar">
+        <div id="default-controls" class="control-group">
+            <button class="btn" id="btn-wall">1. Load Wall</button>
+            <button class="btn" id="btn-art" disabled>2. Add Art (Set Wall Scale First)</button>
+            <div class="divider"></div>
+            
+            <label><input type="checkbox" id="toggle-grid"> 1" Grid Snap</label>
+            
+            <div id="align-toolbar">
+                <div class="divider"></div>
+                <button class="icon-btn" id="btn-align-left" title="Align Left">L</button>
+                <button class="icon-btn" id="btn-align-center" title="Align Center">C</button>
+                <button class="icon-btn" id="btn-align-right" title="Align Right">R</button>
+                <button class="icon-btn" id="btn-align-top" title="Align Top">T</button>
+                <button class="icon-btn" id="btn-align-middle" title="Align Middle">M</button>
+                <button class="icon-btn" id="btn-align-bottom" title="Align Bottom">B</button>
+                <div class="divider"></div>
+                <button class="icon-btn" id="btn-distribute-h" title="Distribute Horizontally">↔</button>
+                <button class="icon-btn" id="btn-distribute-v" title="Distribute Vertically">↕</button>
+            </div>
+
+            <div style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
+                <button class="btn btn-danger" id="btn-delete" style="display: none;">Remove Selected</button>
+                <button class="icon-btn" id="btn-theme-toggle" title="Toggle Theme" style="border: none; background: transparent; box-shadow: none;">
+                    <svg id="icon-sun" style="width: 20px; height: 20px; color: var(--color-warning);" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg id="icon-moon" style="display: none; width: 20px; height: 20px; color: var(--color-primary);" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="wall-scale-controls" class="control-group" style="display: none;">
+            <span class="instruction-text">Drag corners to frame the wall. Enter real dimensions:</span>
+            <input type="number" id="input-wall-w" placeholder="Width (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 85px;">
+            <span style="color: var(--text-muted);">x</span>
+            <input type="number" id="input-wall-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 85px;">
+            <button class="btn btn-success" id="btn-set-scale">Correct & Set Scale</button>
+            <button class="btn btn-danger" id="btn-cancel-wall">Cancel</button>
+        </div>
+    </div>
+
+    <div id="workspace">
+        <div id="ruler-v" class="ruler" title="Drag to add vertical guide" style="display: none;">
+            <canvas id="ruler-v-canvas"></canvas>
+        </div>
+        <div id="workspace-column">
+            <div id="ruler-h" class="ruler" title="Drag to add horizontal guide" style="display: none;">
+                <canvas id="ruler-h-canvas"></canvas>
+            </div>
+            <div id="canvas-container">
+                <canvas id="wall-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="tray">
+        <p id="tray-empty-text">Art Tray - Cutouts will appear here</p>
+    </div>
+
+    <div id="context-menu">
+        <div class="ctx-item" id="ctx-delete">Delete Piece</div>
+    </div>
+
+    <div id="change-wall-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3 style="margin-top: 0; color: var(--color-warning);">Change Wall Geometry</h3>
+            <p style="margin-bottom: 20px; line-height: 1.5;">Warning: Modifying the wall will clear all placed art and guides from the workspace. (Art in your tray will remain untouched).</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn btn-success" id="btn-redefine-wall">Redefine Current Image Polygon</button>
+                <button class="btn btn-primary" id="btn-load-new-wall">Load Brand New Wall Image</button>
+                <button class="btn btn-danger" id="btn-cancel-change-wall">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="art-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; margin-bottom: 5px;">Crop & Correct Art</h3>
+            <span class="instruction-text" style="display: block; margin-bottom: 15px;">Drag corners to frame the physical edges of the piece.</span>
+            
+            <div class="control-group" style="margin-bottom: 15px;">
+                <button class="shape-btn selected" id="btn-shape-rect">Treat as rectangle</button>
+                <button class="shape-btn" id="btn-shape-oval">Treat as oval</button>
+                <button class="shape-btn" id="btn-shape-circle">Treat as circle</button>
+            </div>
+            
+            <div class="control-group" style="margin-bottom: 15px; height: 32px;">
+                <div id="dim-wh" style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-art-w" placeholder="Width (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
+                    <span style="color: var(--text-muted);">x</span>
+                    <input type="number" id="input-art-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
+                </div>
+                <div id="dim-diameter" style="display: none; gap: 10px; align-items: center;">
+                    <input type="number" id="input-art-diam" placeholder="Diameter (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 150px;">
+                </div>
+            </div>
+
+            <div id="art-canvas-container">
+                <canvas id="art-canvas"></canvas>
+            </div>
+
+            <div class="control-group" style="margin-top: 20px; justify-content: flex-end;">
+                <button class="btn btn-danger" id="btn-cancel-art">Cancel</button>
+                <button class="btn btn-success" id="btn-save-art">Save & Send to Tray</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="file-wall" accept="image/png, image/jpeg, image/webp" style="display: none;">
+    <input type="file" id="file-art" accept="image/png, image/jpeg, image/webp" style="display: none;">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="globals.js"></script>
+    <script src="homography.js"></script>
+    <script src="wall.js"></script>
+    <script src="art.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
