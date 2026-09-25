@@ -34,13 +34,17 @@ const AppState = {
     trayItems: {},
     editingTrayId: null,
     workingArtSrc: null,
+    draggingTrayId: null,
 
     artMaskImage: null,
     currentArtShape: 'rect', 
     artPoly: null,
     artOvalStrokeBg: null,
     artOvalFill: null, 
-    artCorners: []
+    artCorners: [],
+    
+    mousePos: null,
+    dragBounds: null
 };
 
 window.getThemeColor = function(type) {

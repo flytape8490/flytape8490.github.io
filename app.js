@@ -60,6 +60,23 @@ window.drawRulers = function() {
         hCtx.stroke();
     }
     
+    // Draw Horizontal Indicators
+    if (AppState.dragBounds) {
+        hCtx.fillStyle = window.getThemeColor('primaryFill');
+        const x1 = AppState.dragBounds.left * zoom;
+        const x2 = AppState.dragBounds.right * zoom;
+        hCtx.fillRect(x1, 0, x2 - x1, hCanvas.clientHeight);
+        
+        hCtx.fillStyle = window.getThemeColor('primary');
+        hCtx.fillRect(x1, 0, 1, hCanvas.clientHeight);
+        hCtx.fillRect(x2 - 1, 0, 1, hCanvas.clientHeight);
+    } else if (AppState.mousePos) {
+        hCtx.fillStyle = window.getThemeColor('primary');
+        hCtx.globalAlpha = 0.5;
+        hCtx.fillRect(AppState.mousePos.x * zoom, 0, 1, hCanvas.clientHeight);
+        hCtx.globalAlpha = 1.0;
+    }
+    
     // Vertical Ruler
     vCanvas.width = vCanvas.clientWidth * dpr;
     vCanvas.height = vCanvas.clientHeight * dpr;
@@ -72,8 +89,6 @@ window.drawRulers = function() {
     vCtx.textAlign = "center";
     vCtx.lineWidth = 1;
     
-    // The vertical ruler spans the full height of the workspace, but the canvas is pushed down
-    // by the height of the horizontal ruler. We add that offset to align the 0 point correctly.
     const vOffset = hRuler.offsetHeight || 24; 
     const originY = (AppState.coreWallBounds ? AppState.coreWallBounds.top * zoom : 0) + vOffset;
     
@@ -100,6 +115,23 @@ window.drawRulers = function() {
         }
         vCtx.stroke();
     }
+
+    // Draw Vertical Indicators
+    if (AppState.dragBounds) {
+        vCtx.fillStyle = window.getThemeColor('primaryFill');
+        const y1 = (AppState.dragBounds.top * zoom) + vOffset;
+        const y2 = (AppState.dragBounds.bottom * zoom) + vOffset;
+        vCtx.fillRect(0, y1, vCanvas.clientWidth, y2 - y1);
+        
+        vCtx.fillStyle = window.getThemeColor('primary');
+        vCtx.fillRect(0, y1, vCanvas.clientWidth, 1);
+        vCtx.fillRect(0, y2 - 1, vCanvas.clientWidth, 1);
+    } else if (AppState.mousePos) {
+        vCtx.fillStyle = window.getThemeColor('primary');
+        vCtx.globalAlpha = 0.5;
+        vCtx.fillRect(0, (AppState.mousePos.y * zoom) + vOffset, vCanvas.clientWidth, 1);
+        vCtx.globalAlpha = 1.0;
+    }
 };
 
 window.resizeCanvas = function() {
@@ -117,14 +149,60 @@ window.resizeCanvas = function() {
 };
 window.addEventListener('resize', window.resizeCanvas);
 
+// Canvas Mouse Hover Tracking
+canvas.on('mouse:move', (e) => {
+    if (AppState.mode !== 'IDLE') return;
+    const pointer = canvas.getPointer(e.e);
+    AppState.mousePos = { x: pointer.x, y: pointer.y };
+    if (window.drawRulers) window.drawRulers();
+});
+
+canvas.on('mouse:out', (e) => {
+    AppState.mousePos = null;
+    if (window.drawRulers) window.drawRulers();
+});
+
 // Drag and Drop Logic
 const canvasContainer = document.getElementById('canvas-container');
+
 canvasContainer.addEventListener('dragover', (e) => {
     e.preventDefault(); 
+    const rect = canvasContainer.getBoundingClientRect();
+    const zoom = canvas.getZoom();
+    
+    const pointerX = (e.clientX - rect.left) / zoom;
+    const pointerY = (e.clientY - rect.top) / zoom;
+    
+    AppState.mousePos = { x: pointerX, y: pointerY };
+    
+    if (AppState.draggingTrayId && AppState.trayItems[AppState.draggingTrayId]) {
+        const item = AppState.trayItems[AppState.draggingTrayId];
+        const pW = item.physicalW * AppState.pixelsPerInch;
+        const pH = item.physicalH * AppState.pixelsPerInch;
+        
+        AppState.dragBounds = {
+            left: pointerX - (pW / 2),
+            right: pointerX + (pW / 2),
+            top: pointerY - (pH / 2),
+            bottom: pointerY + (pH / 2)
+        };
+    }
+    
+    if (window.drawRulers) window.drawRulers();
 });
+
+canvasContainer.addEventListener('dragleave', (e) => {
+    AppState.mousePos = null;
+    AppState.dragBounds = null;
+    if (window.drawRulers) window.drawRulers();
+});
+
 canvasContainer.addEventListener('drop', (e) => {
     e.preventDefault();
-    const id = e.dataTransfer.getData('text/plain');
+    AppState.mousePos = null;
+    AppState.dragBounds = null;
+    
+    const id = e.dataTransfer.getData('text/plain') || AppState.draggingTrayId;
     if (!id) return;
     const trayItem = AppState.trayItems[id];
     if (!trayItem) return;
@@ -277,6 +355,9 @@ window.deleteAllInstances = function(trayId) {
 };
 
 canvas.on('mouse:up', (e) => {
+    AppState.dragBounds = null;
+    if (window.drawRulers) window.drawRulers();
+    
     if (e.target && e.target.isGuide) {
         const bounds = AppState.coreWallBounds || {left:0, top:0};
         if ((e.target.lockMovementX && e.target.top < bounds.top) || 
@@ -392,6 +473,7 @@ function startDragGuide(e, type) {
     
     const onMouseMove = (moveEvent) => {
         const pt = canvas.getPointer(moveEvent);
+        AppState.mousePos = { x: pt.x, y: pt.y };
         
         if (document.getElementById('toggle-grid').checked) {
             const gridSize = AppState.pixelsPerInch;
@@ -413,6 +495,7 @@ function startDragGuide(e, type) {
         }
 
         guide.setCoords();
+        if (window.drawRulers) window.drawRulers();
         canvas.renderAll();
     };
     
@@ -427,6 +510,9 @@ function startDragGuide(e, type) {
             canvas.remove(guide);
             canvas.discardActiveObject();
         }
+        
+        AppState.mousePos = null;
+        if (window.drawRulers) window.drawRulers();
         canvas.renderAll();
     };
     
@@ -483,4 +569,16 @@ canvas.on('object:moving', (e) => {
         target.set({ left: newLeft, top: newTop });
         target.setCoords();
     }
+    
+    // Update Drag Bounds
+    const finalRect = target.getBoundingRect();
+    const zoom = canvas.getZoom();
+    AppState.dragBounds = {
+        left: finalRect.left / zoom,
+        right: (finalRect.left + finalRect.width) / zoom,
+        top: finalRect.top / zoom,
+        bottom: (finalRect.top + finalRect.height) / zoom
+    };
+
+    if (window.drawRulers) window.drawRulers();
 });

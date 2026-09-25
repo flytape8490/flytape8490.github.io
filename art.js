@@ -429,6 +429,13 @@ window.addToTray = function(trayId) {
     
     imgEl.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', trayId);
+        AppState.draggingTrayId = trayId;
+    });
+
+    imgEl.addEventListener('dragend', (e) => {
+        AppState.draggingTrayId = null;
+        AppState.dragBounds = null;
+        if (window.drawRulers) window.drawRulers();
     });
 
     tray.appendChild(imgEl);
