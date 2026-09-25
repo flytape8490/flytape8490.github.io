@@ -69,11 +69,22 @@ function setupArtPerspectiveMode() {
     });
 
     renderArtPoly(); 
+    
+    // Manage marching ants animation for non-rect shapes
+    if (window.marchingAntsInterval) clearInterval(window.marchingAntsInterval);
+    window.marchingAntsInterval = setInterval(() => {
+        if (AppState.currentArtShape !== 'rect' && AppState.artOvalFill) {
+            let offset = AppState.artOvalFill.strokeDashOffset || 0;
+            AppState.artOvalFill.set('strokeDashOffset', offset - 1);
+            artCanvas.requestRenderAll();
+        }
+    }, 50);
 }
 
 function renderArtPoly() {
     if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
     if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
+    if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
     
     const pts = AppState.artCorners.map(c => ({ x: c.left, y: c.top }));
     const successColor = window.getThemeColor('success');
@@ -114,18 +125,29 @@ function renderArtPoly() {
 
         const pathStr = `M ${m0.x} ${m0.y} C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${m1.x} ${m1.y} C ${cp3.x} ${cp3.y} ${cp4.x} ${cp4.y} ${m2.x} ${m2.y} C ${cp5.x} ${cp5.y} ${cp6.x} ${cp6.y} ${m3.x} ${m3.y} C ${cp7.x} ${cp7.y} ${cp8.x} ${cp8.y} ${m0.x} ${m0.y} Z`;
 
+        // Solid white stroke underlayer
+        AppState.artOvalStrokeBg = new fabric.Path(pathStr, {
+            fill: successFill, stroke: '#ffffff', strokeWidth: 2,
+            selectable: false, evented: false
+        });
+        AppState.artOvalStrokeBg.isArtOvalBg = true;
+
+        // Dashed black stroke foreground
         AppState.artOvalFill = new fabric.Path(pathStr, {
-            fill: successFill, stroke: 'transparent',
+            fill: 'transparent', stroke: '#000000', strokeWidth: 2,
+            strokeDashArray: [6, 6], strokeDashOffset: 0,
             selectable: false, evented: false
         });
         AppState.artOvalFill.isArtOval = true;
 
+        artCanvas.add(AppState.artOvalStrokeBg);
         artCanvas.add(AppState.artOvalFill);
         artCanvas.add(AppState.artPoly);
 
         if (AppState.artMaskImage) AppState.artMaskImage.moveTo(0);
-        AppState.artOvalFill.moveTo(1);
-        AppState.artPoly.moveTo(2);
+        AppState.artOvalStrokeBg.moveTo(1);
+        AppState.artOvalFill.moveTo(2);
+        AppState.artPoly.moveTo(3);
     }
     
     AppState.artCorners.forEach(c => c.bringToFront());
@@ -278,10 +300,16 @@ function closeArtModal() {
     
     AppState.artMaskImage = null; 
     AppState.artPoly = null;
+    AppState.artOvalStrokeBg = null;
     AppState.artOvalFill = null;
     AppState.artCorners = [];
     
     document.getElementById('input-art-w').value = '';
     document.getElementById('input-art-h').value = '';
     document.getElementById('input-art-diam').value = '';
+
+    if (window.marchingAntsInterval) {
+        clearInterval(window.marchingAntsInterval);
+        window.marchingAntsInterval = null;
+    }
 }

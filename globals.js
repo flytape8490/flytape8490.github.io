@@ -31,6 +31,7 @@ const AppState = {
     artMaskImage: null,
     currentArtShape: 'rect', 
     artPoly: null,
+    artOvalStrokeBg: null,
     artOvalFill: null, 
     artCorners: []
 };
@@ -68,7 +69,9 @@ window.updateCanvasColors = function() {
             obj.set('stroke', success);
             if (obj.fill !== 'transparent') obj.set('fill', successFill);
         }
-        if (obj.isArtOval) obj.set('fill', successFill);
+        if (obj.isArtOvalBg) {
+            obj.set('fill', successFill);
+        }
         if (obj.isArtCorner) obj.set('stroke', success);
     });
     artCanvas.requestRenderAll();
