@@ -44,6 +44,30 @@ document.getElementById('file-wall').addEventListener('change', (e) => {
     e.target.value = '';
 });
 
+document.getElementById('btn-rotate-wall').addEventListener('click', () => {
+    if (!AppState.rawWallImg) return;
+    const img = AppState.rawWallImg.getElement();
+    const c = document.createElement('canvas');
+    c.width = img.height;
+    c.height = img.width;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width/2, c.height/2);
+    ctx.rotate(90 * Math.PI/180);
+    ctx.drawImage(img, -img.width/2, -img.height/2);
+    
+    fabric.Image.fromURL(c.toDataURL('image/png'), (fImg) => {
+        AppState.rawWallImg = fImg;
+        AppState.isRedefiningWall = false; 
+        
+        wallScaleCanvas.clear();
+        AppState.wallMaskImage = null;
+        AppState.wallPoly = null;
+        AppState.wallCorners = [];
+        
+        openWallModalWithImage(fImg);
+    });
+});
+
 function openWallModalWithImage(img) {
     wallModal.style.display = 'flex';
     wallScaleCanvas.setWidth(wallScaleCanvasContainer.clientWidth);

@@ -33,7 +33,7 @@ const AppState = {
 
     trayItems: {},
     editingTrayId: null,
-    currentRawArtSrc: null,
+    workingArtSrc: null,
 
     artMaskImage: null,
     currentArtShape: 'rect', 

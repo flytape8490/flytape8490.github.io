@@ -4,7 +4,7 @@ document.getElementById('file-art').addEventListener('change', (e) => {
     const reader = new FileReader();
     reader.onload = (event) => {
         AppState.editingTrayId = null;
-        AppState.currentRawArtSrc = event.target.result;
+        AppState.workingArtSrc = event.target.result;
         fabric.Image.fromURL(event.target.result, (img) => {
             if (!img || !img.width) {
                 alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
@@ -41,6 +41,7 @@ document.getElementById('file-art').addEventListener('change', (e) => {
 window.openArtUpdate = function(trayId) {
     const item = AppState.trayItems[trayId];
     AppState.editingTrayId = trayId;
+    AppState.workingArtSrc = item.rawImgSrc;
     AppState.currentArtShape = item.shape;
     updateArtShapeUI();
 
@@ -71,8 +72,55 @@ window.openArtUpdate = function(trayId) {
     });
 };
 
-function setupArtPerspectiveMode() {
-    if (!AppState.editingTrayId) {
+document.getElementById('btn-rotate-art').addEventListener('click', () => {
+    if (!AppState.workingArtSrc) return;
+    const img = new Image();
+    img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.height;
+        c.height = img.width;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width/2, c.height/2);
+        ctx.rotate(90 * Math.PI/180);
+        ctx.drawImage(img, -img.width/2, -img.height/2);
+        
+        AppState.workingArtSrc = c.toDataURL('image/png');
+        
+        AppState.artCorners.forEach(corner => artCanvas.remove(corner));
+        AppState.artCorners = [];
+        if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
+        if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
+        if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
+        if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
+
+        // Temporarily null editing ID so we reset polygon control points completely
+        const tempId = AppState.editingTrayId;
+        AppState.editingTrayId = null;
+
+        fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
+            const scale = Math.min(
+                (artCanvas.width * 0.8) / fImg.width, 
+                (artCanvas.height * 0.8) / fImg.height
+            );
+            fImg.scale(scale);
+            fImg.set({ 
+                left: (artCanvas.width - fImg.getScaledWidth())/2, 
+                top: (artCanvas.height - fImg.getScaledHeight())/2, 
+                selectable: false 
+            });
+            
+            AppState.artMaskImage = fImg;
+            artCanvas.add(AppState.artMaskImage);
+            setupArtPerspectiveMode(true);
+            
+            AppState.editingTrayId = tempId;
+        });
+    };
+    img.src = AppState.workingArtSrc;
+});
+
+function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
+    if (!AppState.editingTrayId && !ignoreSavedPolygon) {
         AppState.currentArtShape = 'rect';
         document.getElementById('input-art-w').value = '';
         document.getElementById('input-art-h').value = '';
@@ -86,7 +134,7 @@ function setupArtPerspectiveMode() {
     const imgH = AppState.artMaskImage.getScaledHeight();
 
     let points;
-    if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
+    if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
         points = AppState.trayItems[AppState.editingTrayId].polygonP.map(p => ({
             x: imgL + (p.x * AppState.artMaskImage.scaleX),
             y: imgT + (p.y * AppState.artMaskImage.scaleY)
@@ -332,7 +380,7 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     
     const finalDataUrl = finalCanvas.toDataURL('image/png');
     const trayId = AppState.editingTrayId || 'tray_' + Date.now();
-    const rawSrc = AppState.editingTrayId ? AppState.trayItems[AppState.editingTrayId].rawImgSrc : AppState.currentRawArtSrc;
+    const rawSrc = AppState.workingArtSrc;
 
     AppState.trayItems[trayId] = {
         id: trayId,
@@ -398,7 +446,7 @@ function closeArtModal() {
     AppState.artOvalFill = null;
     AppState.artCorners = [];
     AppState.editingTrayId = null;
-    AppState.currentRawArtSrc = null;
+    AppState.workingArtSrc = null;
     
     document.getElementById('input-art-w').value = '';
     document.getElementById('input-art-h').value = '';

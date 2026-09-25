@@ -137,8 +137,10 @@ canvasContainer.addEventListener('drop', (e) => {
         img.set({
             scaleX: targetPixelWidth / img.width,
             scaleY: targetPixelHeight / img.height,
-            left: pointerX - (targetPixelWidth / 2),
-            top: pointerY - (targetPixelHeight / 2),
+            left: pointerX,
+            top: pointerY,
+            originX: 'center',
+            originY: 'center',
             hasControls: false, 
             hasBorders: true,   
             borderColor: window.getThemeColor('primary'),
@@ -166,10 +168,32 @@ window.showContextMenu = function(e, type, target) {
     if (type === 'wall-art') {
         const trayId = target.customData.trayId;
         ctxMenu.innerHTML = `
+            <div class="ctx-item" id="ctx-rotate-cw">Rotate 90&deg; CW</div>
+            <div class="ctx-item" id="ctx-rotate-ccw">Rotate 90&deg; CCW</div>
             <div class="ctx-item" id="ctx-update">Update Art</div>
             <div class="ctx-item" id="ctx-delete-selected">Delete Selected</div>
             <div class="ctx-item" id="ctx-delete-all">Delete All Instances</div>
         `;
+        document.getElementById('ctx-rotate-cw').onclick = () => {
+            const active = canvas.getActiveObjects();
+            active.forEach(obj => {
+                obj.rotate((obj.angle || 0) + 90);
+                obj.setCoords();
+            });
+            canvas.requestRenderAll();
+            window.updateAlignToolbar();
+            window.hideContextMenu();
+        };
+        document.getElementById('ctx-rotate-ccw').onclick = () => {
+            const active = canvas.getActiveObjects();
+            active.forEach(obj => {
+                obj.rotate((obj.angle || 0) - 90);
+                obj.setCoords();
+            });
+            canvas.requestRenderAll();
+            window.updateAlignToolbar();
+            window.hideContextMenu();
+        };
         document.getElementById('ctx-update').onclick = () => window.openArtUpdate(trayId);
         document.getElementById('ctx-delete-selected').onclick = () => {
             const active = canvas.getActiveObjects();
@@ -195,7 +219,7 @@ window.showContextMenu = function(e, type, target) {
         };
     }
     
-    // Display block first to calculate dimensions
+    // Display block first to calculate dimensions safely
     ctxMenu.style.display = 'block';
     
     const menuWidth = ctxMenu.offsetWidth;
@@ -204,7 +228,6 @@ window.showContextMenu = function(e, type, target) {
     let left = e.clientX;
     let top = e.clientY;
     
-    // Clamp to window boundaries
     if (left + menuWidth > window.innerWidth) {
         left = window.innerWidth - menuWidth;
     }
@@ -437,18 +460,23 @@ canvas.on('object:moving', (e) => {
 
     if (AppState.coreWallBounds) {
         const b = AppState.coreWallBounds;
+        const bRect = target.getBoundingRect();
+        const zoom = canvas.getZoom();
         
-        let clampedLeft = target.left;
-        let clampedTop = target.top;
-        const logicalWidth = target.getScaledWidth();
-        const logicalHeight = target.getScaledHeight();
+        const vW = bRect.width / zoom;
+        const vH = bRect.height / zoom;
+        const vL = bRect.left / zoom;
+        const vT = bRect.top / zoom;
 
-        if (clampedLeft < b.left) clampedLeft = b.left;
-        if (clampedTop < b.top) clampedTop = b.top;
-        if (clampedLeft + logicalWidth > b.right) clampedLeft = b.right - logicalWidth;
-        if (clampedTop + logicalHeight > b.bottom) clampedTop = b.bottom - logicalHeight;
+        let newLeft = target.left;
+        let newTop = target.top;
+
+        if (vL < b.left) newLeft += (b.left - vL);
+        if (vT < b.top) newTop += (b.top - vT);
+        if (vL + vW > b.right) newLeft -= (vL + vW - b.right);
+        if (vT + vH > b.bottom) newTop -= (vT + vH - b.bottom);
         
-        target.set({ left: clampedLeft, top: clampedTop });
+        target.set({ left: newLeft, top: newTop });
         target.setCoords();
     }
 });
