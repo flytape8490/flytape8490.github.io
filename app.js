@@ -216,11 +216,32 @@ canvasContainer.addEventListener('drop', (e) => {
         const targetPixelWidth = trayItem.physicalW * AppState.pixelsPerInch;
         const targetPixelHeight = trayItem.physicalH * AppState.pixelsPerInch;
         
+        let initialLeft = pointerX;
+        let initialTop = pointerY;
+        
+        // Ensure dropped pieces stay within wall bounds
+        if (AppState.coreWallBounds) {
+            const b = AppState.coreWallBounds;
+            const w2 = targetPixelWidth / 2;
+            const h2 = targetPixelHeight / 2;
+            
+            if (initialLeft - w2 < b.left) initialLeft = b.left + w2;
+            if (initialLeft + w2 > b.right) initialLeft = b.right - w2;
+            if (initialTop - h2 < b.top) initialTop = b.top + h2;
+            if (initialTop + h2 > b.bottom) initialTop = b.bottom - h2;
+        }
+        
+        if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
+            const gridSize = AppState.pixelsPerInch;
+            initialLeft = Math.round(initialLeft / gridSize) * gridSize;
+            initialTop = Math.round(initialTop / gridSize) * gridSize;
+        }
+
         img.set({
             scaleX: targetPixelWidth / img.width,
             scaleY: targetPixelHeight / img.height,
-            left: pointerX,
-            top: pointerY,
+            left: initialLeft,
+            top: initialTop,
             originX: 'center',
             originY: 'center',
             hasControls: false, 
@@ -231,6 +252,7 @@ canvasContainer.addEventListener('drop', (e) => {
         
         canvas.add(img);
         canvas.setActiveObject(img);
+        if (window.drawRulers) window.drawRulers();
     });
 });
 
@@ -545,8 +567,10 @@ canvas.on('object:moving', (e) => {
             left: Math.round(target.left / gridSize) * gridSize,
             top: Math.round(target.top / gridSize) * gridSize
         });
-        target.setCoords();
     }
+
+    // Always update coordinates before reading the bounding rect
+    target.setCoords();
 
     if (AppState.coreWallBounds) {
         const b = AppState.coreWallBounds;
@@ -558,14 +582,19 @@ canvas.on('object:moving', (e) => {
         const vL = bRect.left / zoom;
         const vT = bRect.top / zoom;
 
+        const offsetLeft = target.left - vL;
+        const offsetRight = (vL + vW) - target.left;
+        const offsetTop = target.top - vT;
+        const offsetBottom = (vT + vH) - target.top;
+
         let newLeft = target.left;
         let newTop = target.top;
 
-        if (vL < b.left) newLeft += (b.left - vL);
-        if (vT < b.top) newTop += (b.top - vT);
-        if (vL + vW > b.right) newLeft -= (vL + vW - b.right);
-        if (vT + vH > b.bottom) newTop -= (vT + vH - b.bottom);
-        
+        if (newLeft - offsetLeft < b.left) newLeft = b.left + offsetLeft;
+        if (newLeft + offsetRight > b.right) newLeft = b.right - offsetRight;
+        if (newTop - offsetTop < b.top) newTop = b.top + offsetTop;
+        if (newTop + offsetBottom > b.bottom) newTop = b.bottom - offsetBottom;
+
         target.set({ left: newLeft, top: newTop });
         target.setCoords();
     }
