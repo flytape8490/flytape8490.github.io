@@ -9,9 +9,12 @@ const tray = document.getElementById('tray');
 const artCanvasContainer = document.getElementById('art-canvas-container');
 const artCanvas = new fabric.Canvas('art-canvas', { selection: false });
 
+const wallScaleCanvasContainer = document.getElementById('wall-scale-canvas-container');
+const wallScaleCanvas = new fabric.Canvas('wall-scale-canvas', { selection: false });
+
 const uiDefault = document.getElementById('default-controls');
-const uiWallScale = document.getElementById('wall-scale-controls');
 const artModal = document.getElementById('art-modal');
+const wallModal = document.getElementById('wall-modal');
 
 const AppState = {
     logicalWidth: 1000, 
@@ -20,6 +23,7 @@ const AppState = {
     mode: 'IDLE', 
 
     rawWallImg: null,
+    wallMaskImage: null,
     wallPoly: null,
     wallCorners: [],
     coreWallBounds: null, 
@@ -50,10 +54,14 @@ window.updateCanvasColors = function() {
 
     canvas.getObjects().forEach(obj => {
         if (obj.isGuide) obj.set('stroke', primary);
+    });
+    canvas.requestRenderAll();
+    
+    wallScaleCanvas.getObjects().forEach(obj => {
         if (obj.isWallPoly) obj.set({ stroke: primary, fill: primaryFill });
         if (obj.isWallCorner) obj.set({ stroke: primary });
     });
-    canvas.requestRenderAll();
+    wallScaleCanvas.requestRenderAll();
 
     artCanvas.getObjects().forEach(obj => {
         if (obj.isArtPoly) {

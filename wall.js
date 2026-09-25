@@ -13,20 +13,7 @@ document.getElementById('btn-load-new-wall').addEventListener('click', () => {
 
 document.getElementById('btn-redefine-wall').addEventListener('click', () => {
     document.getElementById('change-wall-modal').style.display = 'none';
-    
-    canvas.clear();
-    AppState.coreWallBounds = null;
-    document.getElementById('ruler-h').style.display = 'none';
-    document.getElementById('ruler-v').style.display = 'none';
-    document.getElementById('btn-art').disabled = true;
-    document.getElementById('btn-wall').textContent = "1. Load Wall";
-    
-    AppState.logicalWidth = AppState.rawWallImg.width;
-    AppState.logicalHeight = AppState.rawWallImg.height;
-    
-    canvas.setBackgroundImage(AppState.rawWallImg, canvas.renderAll.bind(canvas));
-    window.resizeCanvas(); 
-    startWallPerspectiveMode();
+    openWallModalWithImage(AppState.rawWallImg);
 });
 
 document.getElementById('btn-cancel-change-wall').addEventListener('click', () => {
@@ -36,15 +23,6 @@ document.getElementById('btn-cancel-change-wall').addEventListener('click', () =
 document.getElementById('file-wall').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
     
-    if (AppState.coreWallBounds) {
-        canvas.clear();
-        AppState.coreWallBounds = null;
-        document.getElementById('ruler-h').style.display = 'none';
-        document.getElementById('ruler-v').style.display = 'none';
-        document.getElementById('btn-art').disabled = true;
-        document.getElementById('btn-wall').textContent = "1. Load Wall";
-    }
-    
     const reader = new FileReader();
     reader.onload = (event) => {
         fabric.Image.fromURL(event.target.result, (img) => {
@@ -53,44 +31,66 @@ document.getElementById('file-wall').addEventListener('change', (e) => {
                 return;
             }
             
-            AppState.logicalWidth = img.width;
-            AppState.logicalHeight = img.height;
             AppState.rawWallImg = img;
-            
-            canvas.clear();
-            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
-            window.resizeCanvas(); 
-            startWallPerspectiveMode();
+            openWallModalWithImage(img);
         });
     };
     reader.readAsDataURL(e.target.files[0]);
     e.target.value = '';
 });
 
+function openWallModalWithImage(img) {
+    wallModal.style.display = 'flex';
+    wallScaleCanvas.setWidth(wallScaleCanvasContainer.clientWidth);
+    wallScaleCanvas.setHeight(wallScaleCanvasContainer.clientHeight);
+    
+    const scale = Math.min(
+        (wallScaleCanvas.width * 0.8) / img.width, 
+        (wallScaleCanvas.height * 0.8) / img.height
+    );
+    
+    fabric.Image.fromURL(img.getElement().src, (modalImg) => {
+        modalImg.scale(scale);
+        modalImg.set({ 
+            left: (wallScaleCanvas.width - modalImg.getScaledWidth())/2, 
+            top: (wallScaleCanvas.height - modalImg.getScaledHeight())/2, 
+            selectable: false 
+        });
+        
+        AppState.wallMaskImage = modalImg;
+        wallScaleCanvas.add(AppState.wallMaskImage);
+        
+        startWallPerspectiveMode();
+    });
+}
+
 function startWallPerspectiveMode() {
     AppState.mode = 'WALL_SCALE';
-    uiDefault.style.display = 'none';
-    uiWallScale.style.display = 'flex';
     
-    const padX = AppState.logicalWidth * 0.1;
-    const padY = AppState.logicalHeight * 0.1;
+    const imgL = AppState.wallMaskImage.left;
+    const imgT = AppState.wallMaskImage.top;
+    const imgW = AppState.wallMaskImage.getScaledWidth();
+    const imgH = AppState.wallMaskImage.getScaledHeight();
+
+    const padX = imgW * 0.1;
+    const padY = imgH * 0.1;
     const points = [
-        { x: padX, y: padY }, 
-        { x: AppState.logicalWidth - padX, y: padY }, 
-        { x: AppState.logicalWidth - padX, y: AppState.logicalHeight - padY }, 
-        { x: padX, y: AppState.logicalHeight - padY } 
+        { x: imgL + padX, y: imgT + padY }, 
+        { x: imgL + imgW - padX, y: imgT + padY }, 
+        { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
+        { x: imgL + padX, y: imgT + imgH - padY } 
     ];
 
     AppState.wallCorners = points.map((p, index) => {
         const circle = new fabric.Circle({
-            radius: 15, fill: '#ffffff', stroke: window.getThemeColor('primary'), strokeWidth: 4,
+            radius: 12, fill: '#ffffff', stroke: window.getThemeColor('primary'), strokeWidth: 4,
             left: p.x, top: p.y, originX: 'center', originY: 'center',
             hasBorders: false, hasControls: false, customIndex: index
         });
         circle.isWallCorner = true;
         circle._lastValidX = p.x;
         circle._lastValidY = p.y;
-        canvas.add(circle);
+        wallScaleCanvas.add(circle);
         return circle;
     });
 
@@ -98,7 +98,7 @@ function startWallPerspectiveMode() {
 }
 
 function renderWallPoly() {
-    if (AppState.wallPoly) canvas.remove(AppState.wallPoly);
+    if (AppState.wallPoly) wallScaleCanvas.remove(AppState.wallPoly);
     const currentPoints = AppState.wallCorners.map(c => ({ x: c.left, y: c.top }));
     
     AppState.wallPoly = new fabric.Polygon(currentPoints, {
@@ -108,19 +108,27 @@ function renderWallPoly() {
         selectable: false, evented: false, objectCaching: false
     });
     AppState.wallPoly.isWallPoly = true;
-    canvas.add(AppState.wallPoly);
-    AppState.wallPoly.sendToBack();
+    wallScaleCanvas.add(AppState.wallPoly);
+    
+    if (AppState.wallMaskImage) AppState.wallMaskImage.moveTo(0);
+    AppState.wallPoly.moveTo(1);
+    AppState.wallCorners.forEach(c => c.bringToFront());
 }
 
-canvas.on('object:moving', (e) => {
+wallScaleCanvas.on('object:moving', (e) => {
     if (AppState.mode === 'WALL_SCALE' && e.target.type === 'circle' && e.target.customIndex !== undefined) {
+        const minBoundX = AppState.wallMaskImage.left;
+        const minBoundY = AppState.wallMaskImage.top;
+        const maxBoundX = minBoundX + AppState.wallMaskImage.getScaledWidth();
+        const maxBoundY = minBoundY + AppState.wallMaskImage.getScaledHeight();
+
         window.enforcePolygonBounds(
             e.target, 
             AppState.wallCorners, 
-            0, 
-            0, 
-            AppState.logicalWidth, 
-            AppState.logicalHeight
+            minBoundX, 
+            minBoundY, 
+            maxBoundX, 
+            maxBoundY
         );
         renderWallPoly();
     }
@@ -135,7 +143,16 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     }
     
     AppState.pixelsPerInch = 15; 
-    const absolutePoints = AppState.wallCorners.map(c => ({ x: c.left, y: c.top }));
+    
+    const scaleX = AppState.wallMaskImage.scaleX;
+    const scaleY = AppState.wallMaskImage.scaleY;
+    const leftOff = AppState.wallMaskImage.left;
+    const topOff = AppState.wallMaskImage.top;
+
+    const absolutePoints = AppState.wallCorners.map(c => ({
+        x: (c.left - leftOff) / scaleX,
+        y: (c.top - topOff) / scaleY
+    }));
 
     const xs = absolutePoints.map(p => p.x);
     const ys = absolutePoints.map(p => p.y);
@@ -236,15 +253,17 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
         
         if (window.drawRulers) window.drawRulers();
         
-        AppState.mode = 'IDLE';
-        uiWallScale.style.display = 'none';
-        uiDefault.style.display = 'flex';
+        closeWallModal();
     });
 });
 
-document.getElementById('btn-cancel-wall').addEventListener('click', () => {
-    canvas.clear();
+function closeWallModal() {
+    wallModal.style.display = 'none';
+    wallScaleCanvas.clear();
+    AppState.wallMaskImage = null;
+    AppState.wallPoly = null;
+    AppState.wallCorners = [];
     AppState.mode = 'IDLE';
-    uiWallScale.style.display = 'none';
-    uiDefault.style.display = 'flex';
-});
+}
+
+document.getElementById('btn-cancel-wall').addEventListener('click', closeWallModal);
