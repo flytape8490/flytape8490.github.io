@@ -105,7 +105,7 @@ input[type="number"], input[type="text"] {
 }
 #canvas-container { 
     flex-grow: 1; position: relative; width: 100%; height: 100%; 
-    min-width: 0; min-height: 0; overflow: auto; /* Updated for zooming/panning */
+    min-width: 0; min-height: 0; overflow: auto; 
 }
 
 /* Zoom Controls */
@@ -175,20 +175,63 @@ input[type="number"], input[type="text"] {
     cursor: grabbing;
 }
 
+/* Modals */
 .modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--modal-overlay); z-index: 100;
     display: flex; justify-content: center; align-items: center;
 }
+
 .modal-content {
-    background: var(--bg-panel); padding: 25px; border-radius: 12px;
+    background: var(--bg-panel); padding: 20px; border-radius: 12px;
     width: 90%; max-width: 700px; max-height: 95vh;
     display: flex; flex-direction: column;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 }
+
+.modal-content.editor-modal {
+    max-width: 85vw;
+    max-height: 85vh;
+    padding: 20px;
+}
+
+.modal-content.editor-modal.landscape {
+    width: 85vw;
+    height: auto;
+}
+
+.modal-content.editor-modal.portrait {
+    height: 85vh;
+    width: fit-content;
+    min-width: 650px; /* Safe width for headers */
+}
+
+.modal-header-bar, .modal-content.editor-modal > .control-group {
+    flex-shrink: 0;
+}
+
 #art-canvas-container,
 #wall-scale-canvas-container {
-    width: 100%; height: 400px; background: var(--bg-tray); 
-    border: 1px solid var(--border-color); border-radius: 6px; position: relative;
-    overflow: hidden;
+    background: var(--bg-tray); 
+    border: 1px solid var(--border-color); 
+    border-radius: 6px; 
+    position: relative;
+    overflow: hidden; 
+    margin-bottom: 15px;
+    flex-shrink: 1;
+}
+
+.modal-content.editor-modal.landscape #art-canvas-container,
+.modal-content.editor-modal.landscape #wall-scale-canvas-container {
+    width: 100%;
+    height: auto;
+    flex-grow: 1; 
+}
+
+.modal-content.editor-modal.portrait #art-canvas-container,
+.modal-content.editor-modal.portrait #wall-scale-canvas-container {
+    height: 100%;
+    width: auto;
+    min-height: 0; 
+    flex-grow: 1;
 }

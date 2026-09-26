@@ -76,19 +76,39 @@ window.processImageFile = function(file, callback) {
     reader.readAsDataURL(file);
 };
 
-window.setupModalCanvasImage = function(fabricCanvas, containerEl, fabricImg) {
-    fabricCanvas.setWidth(containerEl.clientWidth);
-    fabricCanvas.setHeight(containerEl.clientHeight);
+window.setupModalCanvasImage = function(fabricCanvas, containerEl, fabricImg, modalContentEl) {
+    const imgRatio = fabricImg.width / fabricImg.height;
     
+    if (fabricImg.width > fabricImg.height) {
+        modalContentEl.classList.add('landscape');
+        modalContentEl.classList.remove('portrait');
+    } else {
+        modalContentEl.classList.add('portrait');
+        modalContentEl.classList.remove('landscape');
+    }
+
+    containerEl.style.aspectRatio = imgRatio;
+
+    // Force synchronous layout recalculation so clientWidth is immediately available
+    void modalContentEl.offsetHeight;
+    void containerEl.offsetHeight;
+
+    const targetW = containerEl.clientWidth;
+    const targetH = containerEl.clientHeight;
+
+    fabricCanvas.setWidth(targetW);
+    fabricCanvas.setHeight(targetH);
+    
+    // Scale image to fill 95% of this optimally sized canvas
     const scale = Math.min(
-        (fabricCanvas.width * 0.8) / fabricImg.width, 
-        (fabricCanvas.height * 0.8) / fabricImg.height
+        (targetW * 0.95) / fabricImg.width, 
+        (targetH * 0.95) / fabricImg.height
     );
     
     fabricImg.scale(scale);
     fabricImg.set({ 
-        left: (fabricCanvas.width - fabricImg.getScaledWidth()) / 2, 
-        top: (fabricCanvas.height - fabricImg.getScaledHeight()) / 2, 
+        left: (targetW - fabricImg.getScaledWidth()) / 2, 
+        top: (targetH - fabricImg.getScaledHeight()) / 2, 
         selectable: false 
     });
     

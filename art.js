@@ -7,7 +7,12 @@ document.getElementById('file-art').addEventListener('change', (e) => {
         fabric.Image.fromURL(webpUrl, (img) => {
             if (!img || !img.width) return alert("Failed to load image. Please ensure you are using a standard format.");
             artModal.style.display = 'flex';
-            AppState.artMaskImage = window.setupModalCanvasImage(artCanvas, artCanvasContainer, img);
+            AppState.artMaskImage = window.setupModalCanvasImage(
+                artCanvas, 
+                artCanvasContainer, 
+                img, 
+                document.querySelector('#art-modal .modal-content')
+            );
             setupArtPerspectiveMode();
         });
     });
@@ -30,7 +35,12 @@ window.openArtUpdate = function(trayId) {
 
     fabric.Image.fromURL(item.rawImgSrc, (img) => {
         artModal.style.display = 'flex';
-        AppState.artMaskImage = window.setupModalCanvasImage(artCanvas, artCanvasContainer, img);
+        AppState.artMaskImage = window.setupModalCanvasImage(
+            artCanvas, 
+            artCanvasContainer, 
+            img, 
+            document.querySelector('#art-modal .modal-content')
+        );
         setupArtPerspectiveMode();
     });
 };
@@ -60,7 +70,12 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
             AppState.editingTrayId = null;
 
             fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
-                AppState.artMaskImage = window.setupModalCanvasImage(artCanvas, artCanvasContainer, fImg);
+                AppState.artMaskImage = window.setupModalCanvasImage(
+                    artCanvas, 
+                    artCanvasContainer, 
+                    fImg, 
+                    document.querySelector('#art-modal .modal-content')
+                );
                 setupArtPerspectiveMode(true);
                 AppState.editingTrayId = tempId;
             });
@@ -293,7 +308,7 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
         };
 
         if (AppState.editingTrayId) {
-            const imgEl = tray.querySelector(`img[data-id="${trayId}"]`);
+            const imgEl = document.getElementById('tray').querySelector(`img[data-id="${trayId}"]`);
             if (imgEl) imgEl.src = finalDataUrl;
             
             canvas.getObjects().forEach(obj => {

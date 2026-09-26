@@ -95,24 +95,30 @@
     </div>
 
     <div id="wall-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 style="margin-top: 0; margin-bottom: 5px;">Define Wall Geometry</h3>
-            <span class="instruction-text" style="display: block; margin-bottom: 15px;">Drag corners to frame the wall. Enter real dimensions:</span>
-
-            <div class="control-group" style="margin-bottom: 15px; height: 32px; justify-content: space-between;">
-                <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="modal-content editor-modal">
+            
+            <div class="modal-header-bar" style="display: flex; align-items: center; margin-bottom: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 4px; margin-right: 20px;">
+                    <h3 style="margin: 0;">Define Wall Geometry</h3>
+                    <span class="instruction-text">Drag corners to frame the wall. Enter real dimensions:</span>
+                </div>
+                
+                <div class="divider" style="height: 32px; margin-right: 20px;"></div>
+                
+                <div style="display: flex; gap: 10px; align-items: center; margin-right: auto;">
                     <input type="number" id="input-wall-w" placeholder="Width (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
                     <span style="color: var(--text-muted);">x</span>
                     <input type="number" id="input-wall-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
                 </div>
-                <button class="btn btn-primary" id="btn-rotate-wall">Rotate Image 90&deg; ↻</button>
+                
+                <button class="btn btn-primary" id="btn-rotate-wall" style="flex-shrink: 0;">Rotate Image 90&deg; ↻</button>
             </div>
 
             <div id="wall-scale-canvas-container">
                 <canvas id="wall-scale-canvas"></canvas>
             </div>
 
-            <div class="control-group" style="margin-top: 20px; justify-content: flex-end;">
+            <div class="control-group" style="justify-content: flex-end; margin-top: auto;">
                 <button class="btn btn-danger" id="btn-cancel-wall">Cancel</button>
                 <button class="btn btn-success" id="btn-set-scale">Correct & Set Scale</button>
             </div>
@@ -120,35 +126,42 @@
     </div>
 
     <div id="art-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 style="margin-top: 0; margin-bottom: 5px;">Crop & Correct Art</h3>
-            <span class="instruction-text" style="display: block; margin-bottom: 15px;">Drag corners to frame the physical edges of the piece.</span>
+        <div class="modal-content editor-modal">
             
-            <div class="control-group" style="margin-bottom: 15px;">
-                <button class="shape-btn selected" id="btn-shape-rect">Treat as rectangle</button>
-                <button class="shape-btn" id="btn-shape-oval">Treat as oval</button>
-                <button class="shape-btn" id="btn-shape-circle">Treat as circle</button>
-            </div>
-            
-            <div class="control-group" style="margin-bottom: 15px; height: 32px; justify-content: space-between;">
-                <div style="display: flex; align-items: center;">
-                    <div id="dim-wh" style="display: flex; gap: 10px; align-items: center;">
-                        <input type="number" id="input-art-w" placeholder="Width (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
-                        <span style="color: var(--text-muted);">x</span>
-                        <input type="number" id="input-art-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
-                    </div>
-                    <div id="dim-diameter" style="display: none; gap: 10px; align-items: center;">
-                        <input type="number" id="input-art-diam" placeholder="Diameter (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 150px;">
-                    </div>
+            <div class="modal-header-bar" style="display: flex; flex-wrap: wrap; align-items: center; margin-bottom: 15px; gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 4px; margin-right: 10px;">
+                    <h3 style="margin: 0;">Crop & Correct Art</h3>
+                    <span class="instruction-text">Drag corners to frame the physical edges of the piece.</span>
                 </div>
-                <button class="btn btn-primary" id="btn-rotate-art">Rotate Image 90&deg; ↻</button>
+                
+                <div class="divider" style="height: 32px;"></div>
+                
+                <div class="control-group" style="margin: 0; width: auto; gap: 5px;">
+                    <button class="shape-btn selected" id="btn-shape-rect">Treat as rectangle</button>
+                    <button class="shape-btn" id="btn-shape-oval">Treat as oval</button>
+                    <button class="shape-btn" id="btn-shape-circle">Treat as circle</button>
+                </div>
+                
+                <div class="divider" style="height: 32px;"></div>
+                
+                <div id="dim-wh" style="display: flex; gap: 10px; align-items: center; margin-right: auto;">
+                    <input type="number" id="input-art-w" placeholder="Width (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
+                    <span style="color: var(--text-muted);">x</span>
+                    <input type="number" id="input-art-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
+                </div>
+                
+                <div id="dim-diameter" style="display: none; gap: 10px; align-items: center; margin-right: auto;">
+                    <input type="number" id="input-art-diam" placeholder="Diameter (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 150px;">
+                </div>
+                
+                <button class="btn btn-primary" id="btn-rotate-art" style="flex-shrink: 0;">Rotate Image 90&deg; ↻</button>
             </div>
 
             <div id="art-canvas-container">
                 <canvas id="art-canvas"></canvas>
             </div>
 
-            <div class="control-group" style="margin-top: 20px; justify-content: flex-end;">
+            <div class="control-group" style="justify-content: flex-end; margin-top: auto;">
                 <button class="btn btn-danger" id="btn-cancel-art">Cancel</button>
                 <button class="btn btn-success" id="btn-save-art">Save & Send to Tray</button>
             </div>

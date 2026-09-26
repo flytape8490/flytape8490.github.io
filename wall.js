@@ -73,7 +73,12 @@ function openWallModalWithImage(img) {
     }
     
     fabric.Image.fromURL(img.getElement().src, (modalImg) => {
-        AppState.wallMaskImage = window.setupModalCanvasImage(wallScaleCanvas, wallScaleCanvasContainer, modalImg);
+        AppState.wallMaskImage = window.setupModalCanvasImage(
+            wallScaleCanvas, 
+            wallScaleCanvasContainer, 
+            modalImg, 
+            document.querySelector('#wall-modal .modal-content')
+        );
         startWallPerspectiveMode();
     });
 }
@@ -232,7 +237,6 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             document.getElementById('ruler-h').style.display = 'flex';
             document.getElementById('ruler-v').style.display = 'flex';
             
-            // Show Tray and Zoom controls upon successful setup
             document.getElementById('tray').style.display = 'flex';
             document.getElementById('zoom-controls').style.display = 'flex';
             
