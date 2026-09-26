@@ -162,6 +162,15 @@ canvas.on('mouse:out', (e) => {
     if (window.drawRulers) window.drawRulers();
 });
 
+// Centralized Grid Snapping Math
+function applyGridSnap(value) {
+    if (!document.getElementById('toggle-grid').checked || !AppState.pixelsPerInch) return value;
+    const rawVal = parseFloat(document.getElementById('input-snap-val').value);
+    const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
+    const gridSize = AppState.pixelsPerInch * snapVal;
+    return Math.round(value / gridSize) * gridSize;
+}
+
 // Drag and Drop Logic
 const canvasContainer = document.getElementById('canvas-container');
 
@@ -172,13 +181,8 @@ function calculateDropPosition(clientX, clientY, pW, pH) {
     let pointerX = (clientX - rect.left) / zoom;
     let pointerY = (clientY - rect.top) / zoom;
 
-    if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-        const rawVal = parseFloat(document.getElementById('input-snap-val').value);
-        const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
-        const gridSize = AppState.pixelsPerInch * snapVal;
-        pointerX = Math.round(pointerX / gridSize) * gridSize;
-        pointerY = Math.round(pointerY / gridSize) * gridSize;
-    }
+    pointerX = applyGridSnap(pointerX);
+    pointerY = applyGridSnap(pointerY);
 
     const guidesX = [];
     const guidesY = [];
@@ -595,17 +599,11 @@ function startDragGuide(e, type) {
         const pt = canvas.getPointer(moveEvent);
         AppState.mousePos = { x: pt.x, y: pt.y };
         
-        if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-            const rawVal = parseFloat(document.getElementById('input-snap-val').value);
-            const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
-            const gridSize = AppState.pixelsPerInch * snapVal;
-            if (isHorizontal) pt.y = Math.round(pt.y / gridSize) * gridSize;
-            else pt.x = Math.round(pt.x / gridSize) * gridSize;
-        }
-
         if (isHorizontal) {
+            pt.y = applyGridSnap(pt.y);
             guide.set({ y1: pt.y, y2: pt.y, top: pt.y });
         } else {
+            pt.x = applyGridSnap(pt.x);
             guide.set({ x1: pt.x, x2: pt.x, left: pt.x });
         }
         
@@ -651,6 +649,12 @@ canvas.on('object:moving', (e) => {
     const target = e.target;
 
     if (target.isGuide) {
+        if (target.lockMovementX) {
+            target.set('top', applyGridSnap(target.top));
+        } else {
+            target.set('left', applyGridSnap(target.left));
+        }
+
         const bounds = AppState.coreWallBounds || {left:0, top:0};
         if ((target.lockMovementX && target.top < bounds.top) || 
             (target.lockMovementY && target.left < bounds.left)) {
@@ -661,15 +665,10 @@ canvas.on('object:moving', (e) => {
         return; 
     }
     
-    if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-        const rawVal = parseFloat(document.getElementById('input-snap-val').value);
-        const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
-        const gridSize = AppState.pixelsPerInch * snapVal; 
-        target.set({
-            left: Math.round(target.left / gridSize) * gridSize,
-            top: Math.round(target.top / gridSize) * gridSize
-        });
-    }
+    target.set({
+        left: applyGridSnap(target.left),
+        top: applyGridSnap(target.top)
+    });
 
     // Always update coordinates before reading the bounding rect
     target.setCoords();
