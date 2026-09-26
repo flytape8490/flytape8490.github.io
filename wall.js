@@ -26,20 +26,14 @@ document.getElementById('btn-cancel-change-wall').addEventListener('click', () =
 
 document.getElementById('file-wall').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
-    
     window.processImageFile(e.target.files[0], (webpUrl) => {
         fabric.Image.fromURL(webpUrl, (img) => {
-            if (!img || !img.width) {
-                alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
-                return;
-            }
-            
+            if (!img || !img.width) return alert("Failed to load image. Please ensure you are using a standard format.");
             AppState.isRedefiningWall = false;
             AppState.rawWallImg = img;
             openWallModalWithImage(img);
         });
     });
-    
     e.target.value = '';
 });
 
@@ -58,12 +52,10 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
         fabric.Image.fromURL(webpUrl, (fImg) => {
             AppState.rawWallImg = fImg;
             AppState.isRedefiningWall = false; 
-            
             wallScaleCanvas.clear();
             AppState.wallMaskImage = null;
             AppState.wallPoly = null;
             AppState.wallCorners = [];
-            
             openWallModalWithImage(fImg);
         });
     });
@@ -71,8 +63,6 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
 
 function openWallModalWithImage(img) {
     wallModal.style.display = 'flex';
-    wallScaleCanvas.setWidth(wallScaleCanvasContainer.clientWidth);
-    wallScaleCanvas.setHeight(wallScaleCanvasContainer.clientHeight);
     
     if (AppState.isRedefiningWall && AppState.savedWallDimensions) {
         document.getElementById('input-wall-w').value = AppState.savedWallDimensions.w;
@@ -82,29 +72,14 @@ function openWallModalWithImage(img) {
         document.getElementById('input-wall-h').value = '';
     }
     
-    const scale = Math.min(
-        (wallScaleCanvas.width * 0.8) / img.width, 
-        (wallScaleCanvas.height * 0.8) / img.height
-    );
-    
     fabric.Image.fromURL(img.getElement().src, (modalImg) => {
-        modalImg.scale(scale);
-        modalImg.set({ 
-            left: (wallScaleCanvas.width - modalImg.getScaledWidth())/2, 
-            top: (wallScaleCanvas.height - modalImg.getScaledHeight())/2, 
-            selectable: false 
-        });
-        
-        AppState.wallMaskImage = modalImg;
-        wallScaleCanvas.add(AppState.wallMaskImage);
-        
+        AppState.wallMaskImage = window.setupModalCanvasImage(wallScaleCanvas, wallScaleCanvasContainer, modalImg);
         startWallPerspectiveMode();
     });
 }
 
 function startWallPerspectiveMode() {
     AppState.mode = 'WALL_SCALE';
-    
     const imgL = AppState.wallMaskImage.left;
     const imgT = AppState.wallMaskImage.top;
     const imgW = AppState.wallMaskImage.getScaledWidth();
@@ -139,7 +114,6 @@ function startWallPerspectiveMode() {
         wallScaleCanvas.add(circle);
         return circle;
     });
-
     renderWallPoly(); 
 }
 
@@ -168,14 +142,7 @@ wallScaleCanvas.on('object:moving', (e) => {
         const maxBoundX = minBoundX + AppState.wallMaskImage.getScaledWidth();
         const maxBoundY = minBoundY + AppState.wallMaskImage.getScaledHeight();
 
-        window.enforcePolygonBounds(
-            e.target, 
-            AppState.wallCorners, 
-            minBoundX, 
-            minBoundY, 
-            maxBoundX, 
-            maxBoundY
-        );
+        window.enforcePolygonBounds(e.target, AppState.wallCorners, minBoundX, minBoundY, maxBoundX, maxBoundY);
         renderWallPoly();
     }
 });
@@ -241,50 +208,8 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     tempCanvas.height = AppState.rawWallImg.height;
     const tempCtx = tempCanvas.getContext('2d');
     tempCtx.drawImage(AppState.rawWallImg.getElement(), 0, 0);
-    const srcData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-    const src8 = srcData.data;
-    const srcW = tempCanvas.width;
-    const srcH = tempCanvas.height;
 
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = expW;
-    finalCanvas.height = expH;
-    const finalCtx = finalCanvas.getContext('2d');
-    const dstData = finalCtx.createImageData(expW, expH);
-    const dst8 = dstData.data;
-
-    const H = calculateHomography(absolutePoints);
-
-    let dstIdx = 0;
-    for (let y = 0; y < expH; y++) {
-        for (let x = 0; x < expW; x++) {
-            
-            const u = (x - offsetX) / coreW;
-            const v = (y - offsetY) / coreH;
-
-            const denom = H.g * u + H.h * v + 1;
-            const srcX = (H.a * u + H.b * v + H.c) / denom;
-            const srcY = (H.d * u + H.e * v + H.f) / denom;
-
-            const ix = Math.round(srcX);
-            const iy = Math.round(srcY);
-
-            if (ix >= 0 && ix < srcW && iy >= 0 && iy < srcH) {
-                const srcIdx = (iy * srcW + ix) * 4;
-                const isOutside = (u < 0 || u > 1 || v < 0 || v > 1);
-                const multiplier = isOutside ? 0.35 : 1.0;
-
-                dst8[dstIdx] = src8[srcIdx] * multiplier;
-                dst8[dstIdx+1] = src8[srcIdx+1] * multiplier;
-                dst8[dstIdx+2] = src8[srcIdx+2] * multiplier;
-                dst8[dstIdx+3] = src8[srcIdx+3]; 
-            } else {
-                dst8[dstIdx] = 17; dst8[dstIdx+1] = 17; dst8[dstIdx+2] = 17; dst8[dstIdx+3] = 255;
-            }
-            dstIdx += 4;
-        }
-    }
-    finalCtx.putImageData(dstData, 0, 0);
+    const finalCanvas = window.extractPerspective(tempCanvas, expW, expH, absolutePoints, coreW, coreH, offsetX, offsetY, true);
 
     window.exportToWebP(finalCanvas, (webpUrl) => {
         fabric.Image.fromURL(webpUrl, (img) => {
@@ -304,12 +229,10 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             
             document.getElementById('btn-art').disabled = false;
             document.getElementById('btn-wall').textContent = "Change Wall";
-            
             document.getElementById('ruler-h').style.display = 'flex';
             document.getElementById('ruler-v').style.display = 'flex';
             
             if (window.drawRulers) window.drawRulers();
-            
             closeWallModal();
         });
     });
