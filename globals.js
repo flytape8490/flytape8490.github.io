@@ -44,7 +44,9 @@ const AppState = {
     artCorners: [],
     
     mousePos: null,
-    dragBounds: null
+    dragBounds: null,
+    dragPreviewObj: null,
+    isLoadingPreview: false
 };
 
 window.getThemeColor = function(type) {

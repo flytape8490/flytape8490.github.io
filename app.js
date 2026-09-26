@@ -165,26 +165,131 @@ canvas.on('mouse:out', (e) => {
 // Drag and Drop Logic
 const canvasContainer = document.getElementById('canvas-container');
 
-canvasContainer.addEventListener('dragover', (e) => {
-    e.preventDefault(); 
+function calculateDropPosition(clientX, clientY, pW, pH) {
     const rect = canvasContainer.getBoundingClientRect();
     const zoom = canvas.getZoom();
     
-    const pointerX = (e.clientX - rect.left) / zoom;
-    const pointerY = (e.clientY - rect.top) / zoom;
-    
-    AppState.mousePos = { x: pointerX, y: pointerY };
+    let pointerX = (clientX - rect.left) / zoom;
+    let pointerY = (clientY - rect.top) / zoom;
+
+    if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
+        const gridSize = AppState.pixelsPerInch;
+        pointerX = Math.round(pointerX / gridSize) * gridSize;
+        pointerY = Math.round(pointerY / gridSize) * gridSize;
+    }
+
+    const guidesX = [];
+    const guidesY = [];
+    canvas.getObjects().forEach(obj => {
+        if (obj.isGuide) {
+            if (obj.lockMovementY) guidesX.push(obj.left);
+            if (obj.lockMovementX) guidesY.push(obj.top);
+        }
+    });
+
+    if (guidesX.length > 0 || guidesY.length > 0) {
+        const vL = pointerX - pW / 2;
+        const vT = pointerY - pH / 2;
+        const vR = pointerX + pW / 2;
+        const vB = pointerY + pH / 2;
+
+        const SNAP_THRESHOLD = 15 / zoom;
+
+        let snapX = null;
+        let minDiffX = SNAP_THRESHOLD;
+        guidesX.forEach(gx => {
+            const dL = Math.abs(vL - gx);
+            const dC = Math.abs(pointerX - gx);
+            const dR = Math.abs(vR - gx);
+            if (dL < minDiffX) { minDiffX = dL; snapX = pointerX + (gx - vL); }
+            if (dC < minDiffX) { minDiffX = dC; snapX = pointerX + (gx - pointerX); }
+            if (dR < minDiffX) { minDiffX = dR; snapX = pointerX + (gx - vR); }
+        });
+
+        let snapY = null;
+        let minDiffY = SNAP_THRESHOLD;
+        guidesY.forEach(gy => {
+            const dT = Math.abs(vT - gy);
+            const dC = Math.abs(pointerY - gy);
+            const dB = Math.abs(vB - gy);
+            if (dT < minDiffY) { minDiffY = dT; snapY = pointerY + (gy - vT); }
+            if (dC < minDiffY) { minDiffY = dC; snapY = pointerY + (gy - pointerY); }
+            if (dB < minDiffY) { minDiffY = dB; snapY = pointerY + (gy - vB); }
+        });
+
+        if (snapX !== null) pointerX = snapX;
+        if (snapY !== null) pointerY = snapY;
+    }
+
+    if (AppState.coreWallBounds) {
+        const b = AppState.coreWallBounds;
+        const w2 = pW / 2;
+        const h2 = pH / 2;
+        if (pointerX - w2 < b.left) pointerX = b.left + w2;
+        if (pointerX + w2 > b.right) pointerX = b.right - w2;
+        if (pointerY - h2 < b.top) pointerY = b.top + h2;
+        if (pointerY + h2 > b.bottom) pointerY = b.bottom - h2;
+    }
+
+    return { x: pointerX, y: pointerY };
+}
+
+canvasContainer.addEventListener('dragover', (e) => {
+    e.preventDefault(); 
     
     if (AppState.draggingTrayId && AppState.trayItems[AppState.draggingTrayId]) {
         const item = AppState.trayItems[AppState.draggingTrayId];
         const pW = item.physicalW * AppState.pixelsPerInch;
         const pH = item.physicalH * AppState.pixelsPerInch;
         
+        const pos = calculateDropPosition(e.clientX, e.clientY, pW, pH);
+        
+        if (!AppState.dragPreviewObj && !AppState.isLoadingPreview) {
+            AppState.isLoadingPreview = true;
+            fabric.Image.fromURL(item.finalDataUrl, (img) => {
+                img.set({
+                    scaleX: pW / img.width,
+                    scaleY: pH / img.height,
+                    originX: 'center',
+                    originY: 'center',
+                    opacity: 0.65,
+                    hasControls: false, 
+                    hasBorders: true,   
+                    borderColor: window.getThemeColor('primary'),
+                    evented: false,
+                    selectable: false
+                });
+                AppState.dragPreviewObj = img;
+                canvas.add(img);
+                AppState.isLoadingPreview = false;
+                
+                if (AppState.mousePos) {
+                    img.set({ left: AppState.mousePos.x, top: AppState.mousePos.y });
+                    img.setCoords();
+                    canvas.requestRenderAll();
+                }
+            });
+        }
+
+        if (AppState.dragPreviewObj) {
+            AppState.dragPreviewObj.set({ left: pos.x, top: pos.y });
+            AppState.dragPreviewObj.setCoords();
+            canvas.requestRenderAll();
+        }
+
+        AppState.mousePos = { x: pos.x, y: pos.y };
         AppState.dragBounds = {
-            left: pointerX - (pW / 2),
-            right: pointerX + (pW / 2),
-            top: pointerY - (pH / 2),
-            bottom: pointerY + (pH / 2)
+            left: pos.x - (pW / 2),
+            right: pos.x + (pW / 2),
+            top: pos.y - (pH / 2),
+            bottom: pos.y + (pH / 2)
+        };
+    } else {
+        const rect = canvasContainer.getBoundingClientRect();
+        const zoom = canvas.getZoom();
+        AppState.mousePos = {
+            x: (e.clientX - rect.left) / zoom,
+            y: (e.clientY - rect.top) / zoom
         };
     }
     
@@ -192,9 +297,18 @@ canvasContainer.addEventListener('dragover', (e) => {
 });
 
 canvasContainer.addEventListener('dragleave', (e) => {
-    AppState.mousePos = null;
-    AppState.dragBounds = null;
-    if (window.drawRulers) window.drawRulers();
+    const rect = canvasContainer.getBoundingClientRect();
+    if (e.clientX <= rect.left || e.clientX >= rect.right || e.clientY <= rect.top || e.clientY >= rect.bottom) {
+        AppState.mousePos = null;
+        AppState.dragBounds = null;
+        if (AppState.dragPreviewObj) {
+            canvas.remove(AppState.dragPreviewObj);
+            AppState.dragPreviewObj = null;
+            AppState.isLoadingPreview = false;
+            canvas.requestRenderAll();
+        }
+        if (window.drawRulers) window.drawRulers();
+    }
 });
 
 canvasContainer.addEventListener('drop', (e) => {
@@ -202,46 +316,28 @@ canvasContainer.addEventListener('drop', (e) => {
     AppState.mousePos = null;
     AppState.dragBounds = null;
     
+    if (AppState.dragPreviewObj) {
+        canvas.remove(AppState.dragPreviewObj);
+        AppState.dragPreviewObj = null;
+        AppState.isLoadingPreview = false;
+    }
+    
     const id = e.dataTransfer.getData('text/plain') || AppState.draggingTrayId;
     if (!id) return;
     const trayItem = AppState.trayItems[id];
     if (!trayItem) return;
 
-    const rect = canvasContainer.getBoundingClientRect();
-    const zoom = canvas.getZoom();
-    const pointerX = (e.clientX - rect.left) / zoom;
-    const pointerY = (e.clientY - rect.top) / zoom;
+    const pW = trayItem.physicalW * AppState.pixelsPerInch;
+    const pH = trayItem.physicalH * AppState.pixelsPerInch;
+
+    const pos = calculateDropPosition(e.clientX, e.clientY, pW, pH);
 
     fabric.Image.fromURL(trayItem.finalDataUrl, (img) => {
-        const targetPixelWidth = trayItem.physicalW * AppState.pixelsPerInch;
-        const targetPixelHeight = trayItem.physicalH * AppState.pixelsPerInch;
-        
-        let initialLeft = pointerX;
-        let initialTop = pointerY;
-        
-        // Ensure dropped pieces stay within wall bounds
-        if (AppState.coreWallBounds) {
-            const b = AppState.coreWallBounds;
-            const w2 = targetPixelWidth / 2;
-            const h2 = targetPixelHeight / 2;
-            
-            if (initialLeft - w2 < b.left) initialLeft = b.left + w2;
-            if (initialLeft + w2 > b.right) initialLeft = b.right - w2;
-            if (initialTop - h2 < b.top) initialTop = b.top + h2;
-            if (initialTop + h2 > b.bottom) initialTop = b.bottom - h2;
-        }
-        
-        if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-            const gridSize = AppState.pixelsPerInch;
-            initialLeft = Math.round(initialLeft / gridSize) * gridSize;
-            initialTop = Math.round(initialTop / gridSize) * gridSize;
-        }
-
         img.set({
-            scaleX: targetPixelWidth / img.width,
-            scaleY: targetPixelHeight / img.height,
-            left: initialLeft,
-            top: initialTop,
+            scaleX: pW / img.width,
+            scaleY: pH / img.height,
+            left: pos.x,
+            top: pos.y,
             originX: 'center',
             originY: 'center',
             hasControls: false, 
@@ -572,11 +668,66 @@ canvas.on('object:moving', (e) => {
     // Always update coordinates before reading the bounding rect
     target.setCoords();
 
+    const zoom = canvas.getZoom();
+
+    // Guide Snapping
+    const guidesX = [];
+    const guidesY = [];
+    canvas.getObjects().forEach(obj => {
+        if (obj.isGuide && obj !== target) {
+            if (obj.lockMovementY) guidesX.push(obj.left); // Vertical guide
+            if (obj.lockMovementX) guidesY.push(obj.top);  // Horizontal guide
+        }
+    });
+
+    if (guidesX.length > 0 || guidesY.length > 0) {
+        const bRect = target.getBoundingRect();
+        const vW = bRect.width / zoom;
+        const vH = bRect.height / zoom;
+        const vL = bRect.left / zoom;
+        const vT = bRect.top / zoom;
+        const vCenterX = vL + vW / 2;
+        const vCenterY = vT + vH / 2;
+        const vR = vL + vW;
+        const vB = vT + vH;
+
+        const SNAP_THRESHOLD = 15 / zoom;
+
+        let snapX = null;
+        let minDiffX = SNAP_THRESHOLD;
+        
+        guidesX.forEach(gx => {
+            const dL = Math.abs(vL - gx);
+            const dC = Math.abs(vCenterX - gx);
+            const dR = Math.abs(vR - gx);
+
+            if (dL < minDiffX) { minDiffX = dL; snapX = target.left + (gx - vL); }
+            if (dC < minDiffX) { minDiffX = dC; snapX = target.left + (gx - vCenterX); }
+            if (dR < minDiffX) { minDiffX = dR; snapX = target.left + (gx - vR); }
+        });
+
+        let snapY = null;
+        let minDiffY = SNAP_THRESHOLD;
+        
+        guidesY.forEach(gy => {
+            const dT = Math.abs(vT - gy);
+            const dC = Math.abs(vCenterY - gy);
+            const dB = Math.abs(vB - gy);
+
+            if (dT < minDiffY) { minDiffY = dT; snapY = target.top + (gy - vT); }
+            if (dC < minDiffY) { minDiffY = dC; snapY = target.top + (gy - vCenterY); }
+            if (dB < minDiffY) { minDiffY = dB; snapY = target.top + (gy - vB); }
+        });
+
+        if (snapX !== null) target.set('left', snapX);
+        if (snapY !== null) target.set('top', snapY);
+        
+        target.setCoords();
+    }
+
     if (AppState.coreWallBounds) {
         const b = AppState.coreWallBounds;
         const bRect = target.getBoundingRect();
-        const zoom = canvas.getZoom();
-        
         const vW = bRect.width / zoom;
         const vH = bRect.height / zoom;
         const vL = bRect.left / zoom;
@@ -601,7 +752,6 @@ canvas.on('object:moving', (e) => {
     
     // Update Drag Bounds
     const finalRect = target.getBoundingRect();
-    const zoom = canvas.getZoom();
     AppState.dragBounds = {
         left: finalRect.left / zoom,
         right: (finalRect.left + finalRect.width) / zoom,
