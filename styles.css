@@ -92,18 +92,45 @@ body {
 .divider { width: 1px; height: 24px; background: var(--border-color); margin: 0 8px; }
 .instruction-text { color: var(--color-warning); font-weight: bold; font-size: 14px; }
 
-input[type="number"] { padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); }
+input[type="number"], input[type="text"] { 
+    padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); 
+    background: var(--input-bg); color: var(--text-main); 
+}
 
 #workspace { display: flex; flex-grow: 1; position: relative; width: 100%; overflow: hidden; }
 
-/* Structural Fix for the Canvas Flex Container */
 #workspace-column { 
     display: flex; flex-direction: column; flex-grow: 1; width: 100%; 
-    height: 100%; min-width: 0; min-height: 0; 
+    height: 100%; min-width: 0; min-height: 0; position: relative;
 }
 #canvas-container { 
     flex-grow: 1; position: relative; width: 100%; height: 100%; 
-    min-width: 0; min-height: 0; overflow: hidden; 
+    min-width: 0; min-height: 0; overflow: auto; /* Updated for zooming/panning */
+}
+
+/* Zoom Controls */
+#zoom-controls {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg-panel);
+    padding: 5px 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    border: 1px solid var(--border-color);
+    z-index: 20;
+}
+
+#input-zoom-level {
+    width: 60px;
+    text-align: center;
+    font-size: 14px;
+    padding: 4px;
+    pointer-events: none;
+    font-weight: bold;
 }
 
 .ruler { 

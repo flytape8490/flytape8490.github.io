@@ -3,8 +3,8 @@ function calculateDropPosition(clientX, clientY, pW, pH) {
     const rect = canvasContainer.getBoundingClientRect();
     const zoom = canvas.getZoom();
     
-    let pointerX = (clientX - rect.left) / zoom;
-    let pointerY = (clientY - rect.top) / zoom;
+    let pointerX = (clientX - rect.left + canvasContainer.scrollLeft) / zoom;
+    let pointerY = (clientY - rect.top + canvasContainer.scrollTop) / zoom;
 
     pointerX = window.applyGridSnap(pointerX, 'x');
     pointerY = window.applyGridSnap(pointerY, 'y');
@@ -119,8 +119,8 @@ document.getElementById('canvas-container').addEventListener('dragover', (e) => 
         const rect = canvasContainer.getBoundingClientRect();
         const zoom = canvas.getZoom();
         AppState.mousePos = {
-            x: (e.clientX - rect.left) / zoom,
-            y: (e.clientY - rect.top) / zoom
+            x: (e.clientX - rect.left + canvasContainer.scrollLeft) / zoom,
+            y: (e.clientY - rect.top + canvasContainer.scrollTop) / zoom
         };
     }
     

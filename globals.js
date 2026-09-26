@@ -46,5 +46,6 @@ const AppState = {
     mousePos: null,
     dragBounds: null,
     dragPreviewObj: null,
-    isLoadingPreview: false
+    isLoadingPreview: false,
+    zoomMultiplier: 1.0 // 1.0 means "Fit to screen"
 };

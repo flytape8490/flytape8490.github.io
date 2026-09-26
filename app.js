@@ -15,17 +15,39 @@ document.getElementById('btn-theme-toggle').addEventListener('click', () => {
 window.resizeCanvas = function() {
     const availableWidth = document.getElementById('canvas-container').clientWidth;
     const availableHeight = document.getElementById('canvas-container').clientHeight;
+    
     const scaleX = availableWidth / AppState.logicalWidth;
     const scaleY = availableHeight / AppState.logicalHeight;
-    const zoom = Math.min(scaleX, scaleY);
+    const baseZoom = Math.min(scaleX, scaleY);
     
-    canvas.setZoom(zoom);
-    canvas.setWidth(AppState.logicalWidth * zoom);
-    canvas.setHeight(AppState.logicalHeight * zoom);
+    const targetZoom = baseZoom * AppState.zoomMultiplier;
+    
+    canvas.setZoom(targetZoom);
+    canvas.setWidth(AppState.logicalWidth * targetZoom);
+    canvas.setHeight(AppState.logicalHeight * targetZoom);
+    
+    document.getElementById('input-zoom-level').value = Math.round(AppState.zoomMultiplier * 100) + '%';
     
     if (window.drawRulers) window.drawRulers();
 };
+
 window.addEventListener('resize', window.resizeCanvas);
+
+// Zoom Controls
+document.getElementById('btn-zoom-in').addEventListener('click', () => {
+    AppState.zoomMultiplier = Math.round(Math.min(10.0, AppState.zoomMultiplier + 0.2) * 10) / 10;
+    window.resizeCanvas();
+});
+
+document.getElementById('btn-zoom-out').addEventListener('click', () => {
+    AppState.zoomMultiplier = Math.round(Math.max(0.1, AppState.zoomMultiplier - 0.2) * 10) / 10;
+    window.resizeCanvas();
+});
+
+document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+    AppState.zoomMultiplier = 1.0;
+    window.resizeCanvas();
+});
 
 canvas.on('mouse:move', (e) => {
     if (AppState.mode !== 'IDLE') return;

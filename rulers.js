@@ -5,6 +5,10 @@ window.drawRulers = function() {
     
     const hCanvas = document.getElementById('ruler-h-canvas');
     const vCanvas = document.getElementById('ruler-v-canvas');
+    const canvasContainer = document.getElementById('canvas-container');
+    
+    const scrollX = canvasContainer.scrollLeft;
+    const scrollY = canvasContainer.scrollTop;
     
     const zoom = canvas.getZoom();
     const ppi = AppState.pixelsPerInch * zoom; 
@@ -25,7 +29,7 @@ window.drawRulers = function() {
     hCtx.textBaseline = "top";
     hCtx.lineWidth = 1;
     
-    const originX = AppState.coreWallBounds ? AppState.coreWallBounds.left * zoom : 0;
+    const originX = (AppState.coreWallBounds ? AppState.coreWallBounds.left * zoom : 0) - scrollX;
     const startInchX = Math.floor(-originX / ppi);
     const endInchX = Math.ceil((hCanvas.clientWidth - originX) / ppi);
     
@@ -49,8 +53,8 @@ window.drawRulers = function() {
     // Draw Horizontal Indicators
     if (AppState.dragBounds) {
         hCtx.fillStyle = window.getThemeColor('primaryFill');
-        const x1 = AppState.dragBounds.left * zoom;
-        const x2 = AppState.dragBounds.right * zoom;
+        const x1 = (AppState.dragBounds.left * zoom) - scrollX;
+        const x2 = (AppState.dragBounds.right * zoom) - scrollX;
         hCtx.fillRect(x1, 0, x2 - x1, hCanvas.clientHeight);
         
         hCtx.fillStyle = window.getThemeColor('primary');
@@ -59,7 +63,7 @@ window.drawRulers = function() {
     } else if (AppState.mousePos) {
         hCtx.fillStyle = window.getThemeColor('primary');
         hCtx.globalAlpha = 0.5;
-        hCtx.fillRect(AppState.mousePos.x * zoom, 0, 1, hCanvas.clientHeight);
+        hCtx.fillRect((AppState.mousePos.x * zoom) - scrollX, 0, 1, hCanvas.clientHeight);
         hCtx.globalAlpha = 1.0;
     }
     
@@ -76,7 +80,7 @@ window.drawRulers = function() {
     vCtx.lineWidth = 1;
     
     const vOffset = hRuler.offsetHeight || 24; 
-    const originY = (AppState.coreWallBounds ? AppState.coreWallBounds.top * zoom : 0) + vOffset;
+    const originY = (AppState.coreWallBounds ? AppState.coreWallBounds.top * zoom : 0) + vOffset - scrollY;
     
     const startInchY = Math.floor(-originY / ppi);
     const endInchY = Math.ceil((vCanvas.clientHeight - originY) / ppi);
@@ -105,8 +109,8 @@ window.drawRulers = function() {
     // Draw Vertical Indicators
     if (AppState.dragBounds) {
         vCtx.fillStyle = window.getThemeColor('primaryFill');
-        const y1 = (AppState.dragBounds.top * zoom) + vOffset;
-        const y2 = (AppState.dragBounds.bottom * zoom) + vOffset;
+        const y1 = (AppState.dragBounds.top * zoom) + vOffset - scrollY;
+        const y2 = (AppState.dragBounds.bottom * zoom) + vOffset - scrollY;
         vCtx.fillRect(0, y1, vCanvas.clientWidth, y2 - y1);
         
         vCtx.fillStyle = window.getThemeColor('primary');
@@ -115,7 +119,7 @@ window.drawRulers = function() {
     } else if (AppState.mousePos) {
         vCtx.fillStyle = window.getThemeColor('primary');
         vCtx.globalAlpha = 0.5;
-        vCtx.fillRect(0, (AppState.mousePos.y * zoom) + vOffset, vCanvas.clientWidth, 1);
+        vCtx.fillRect(0, (AppState.mousePos.y * zoom) + vOffset - scrollY, vCanvas.clientWidth, 1);
         vCtx.globalAlpha = 1.0;
     }
 };
@@ -185,6 +189,12 @@ window.startDragGuide = function(e, type) {
 
 document.getElementById('ruler-h').addEventListener('mousedown', (e) => window.startDragGuide(e, 'h'));
 document.getElementById('ruler-v').addEventListener('mousedown', (e) => window.startDragGuide(e, 'v'));
+
+// Ensure Rulers and FabricJS pointers remain accurate during container scroll
+document.getElementById('canvas-container').addEventListener('scroll', () => {
+    canvas.calcOffset();
+    if (window.drawRulers) window.drawRulers();
+});
 
 canvas.on('mouse:up', (e) => {
     AppState.dragBounds = null;
