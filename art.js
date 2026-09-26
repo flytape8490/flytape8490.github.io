@@ -430,11 +430,23 @@ window.addToTray = function(trayId) {
     imgEl.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', trayId);
         AppState.draggingTrayId = trayId;
+
+        const ghost = document.getElementById('drag-ghost');
+        if (ghost) {
+            e.dataTransfer.setDragImage(ghost, 0, 0);
+        }
     });
 
     imgEl.addEventListener('dragend', (e) => {
         AppState.draggingTrayId = null;
         AppState.dragBounds = null;
+        AppState.mousePos = null;
+        if (AppState.dragPreviewObj) {
+            canvas.remove(AppState.dragPreviewObj);
+            AppState.dragPreviewObj = null;
+            canvas.requestRenderAll();
+        }
+        AppState.isLoadingPreview = false;
         if (window.drawRulers) window.drawRulers();
     });
 

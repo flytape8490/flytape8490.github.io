@@ -140,6 +140,9 @@
         </div>
     </div>
 
+    <!-- Invisible DOM element to defeat the browser's default native drag ghost -->
+    <img id="drag-ghost" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="position: absolute; top: -100px; pointer-events: none;" alt="">
+
     <input type="file" id="file-wall" accept="image/png, image/jpeg, image/webp" style="display: none;">
     <input type="file" id="file-art" accept="image/png, image/jpeg, image/webp" style="display: none;">
 
