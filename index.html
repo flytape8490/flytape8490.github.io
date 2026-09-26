@@ -23,7 +23,10 @@
             <button class="btn" id="btn-art" disabled>2. Add Art (Set Wall Scale First)</button>
             <div class="divider"></div>
             
-            <label><input type="checkbox" id="toggle-grid"> 1" Grid Snap</label>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <label><input type="checkbox" id="toggle-grid"> Snapping</label>
+                <input type="number" id="input-snap-val" value="1" min="0.1" step="0.1" style="width: 60px;">
+            </div>
             
             <div id="align-toolbar">
                 <div class="divider"></div>
@@ -90,7 +93,7 @@
                     <span style="color: var(--text-muted);">x</span>
                     <input type="number" id="input-wall-h" placeholder="Height (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 100px;">
                 </div>
-                <button class="btn btn-primary" id="btn-rotate-wall">Rotate Image 90&deg; &#8635;</button>
+                <button class="btn btn-primary" id="btn-rotate-wall">Rotate Image 90&deg; ↻</button>
             </div>
 
             <div id="wall-scale-canvas-container">
@@ -126,7 +129,7 @@
                         <input type="number" id="input-art-diam" placeholder="Diameter (in)" min="1" onkeyup="enforcePositive(this)" onchange="enforcePositive(this)" style="width: 150px;">
                     </div>
                 </div>
-                <button class="btn btn-primary" id="btn-rotate-art">Rotate Image 90&deg; &#8635;</button>
+                <button class="btn btn-primary" id="btn-rotate-art">Rotate Image 90&deg; ↻</button>
             </div>
 
             <div id="art-canvas-container">

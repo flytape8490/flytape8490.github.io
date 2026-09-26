@@ -173,7 +173,9 @@ function calculateDropPosition(clientX, clientY, pW, pH) {
     let pointerY = (clientY - rect.top) / zoom;
 
     if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-        const gridSize = AppState.pixelsPerInch;
+        const rawVal = parseFloat(document.getElementById('input-snap-val').value);
+        const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
+        const gridSize = AppState.pixelsPerInch * snapVal;
         pointerX = Math.round(pointerX / gridSize) * gridSize;
         pointerY = Math.round(pointerY / gridSize) * gridSize;
     }
@@ -593,8 +595,10 @@ function startDragGuide(e, type) {
         const pt = canvas.getPointer(moveEvent);
         AppState.mousePos = { x: pt.x, y: pt.y };
         
-        if (document.getElementById('toggle-grid').checked) {
-            const gridSize = AppState.pixelsPerInch;
+        if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
+            const rawVal = parseFloat(document.getElementById('input-snap-val').value);
+            const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
+            const gridSize = AppState.pixelsPerInch * snapVal;
             if (isHorizontal) pt.y = Math.round(pt.y / gridSize) * gridSize;
             else pt.x = Math.round(pt.x / gridSize) * gridSize;
         }
@@ -658,7 +662,9 @@ canvas.on('object:moving', (e) => {
     }
     
     if (document.getElementById('toggle-grid').checked && AppState.pixelsPerInch) {
-        const gridSize = AppState.pixelsPerInch; 
+        const rawVal = parseFloat(document.getElementById('input-snap-val').value);
+        const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
+        const gridSize = AppState.pixelsPerInch * snapVal; 
         target.set({
             left: Math.round(target.left / gridSize) * gridSize,
             top: Math.round(target.top / gridSize) * gridSize
