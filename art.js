@@ -1,11 +1,11 @@
 document.getElementById('btn-art').addEventListener('click', () => document.getElementById('file-art').click());
 document.getElementById('file-art').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    
+    window.processImageFile(e.target.files[0], (webpUrl) => {
         AppState.editingTrayId = null;
-        AppState.workingArtSrc = event.target.result;
-        fabric.Image.fromURL(event.target.result, (img) => {
+        AppState.workingArtSrc = webpUrl;
+        fabric.Image.fromURL(webpUrl, (img) => {
             if (!img || !img.width) {
                 alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
                 return;
@@ -33,8 +33,8 @@ document.getElementById('file-art').addEventListener('change', (e) => {
             
             setupArtPerspectiveMode();
         });
-    };
-    reader.readAsDataURL(e.target.files[0]);
+    });
+    
     e.target.value = ''; 
 });
 
@@ -84,36 +84,38 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
         ctx.rotate(90 * Math.PI/180);
         ctx.drawImage(img, -img.width/2, -img.height/2);
         
-        AppState.workingArtSrc = c.toDataURL('image/png');
-        
-        AppState.artCorners.forEach(corner => artCanvas.remove(corner));
-        AppState.artCorners = [];
-        if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
-        if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
-        if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
-        if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
+        window.exportToWebP(c, (webpUrl) => {
+            AppState.workingArtSrc = webpUrl;
+            
+            AppState.artCorners.forEach(corner => artCanvas.remove(corner));
+            AppState.artCorners = [];
+            if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
+            if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
+            if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
+            if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
 
-        // Temporarily null editing ID so we reset polygon control points completely
-        const tempId = AppState.editingTrayId;
-        AppState.editingTrayId = null;
+            // Temporarily null editing ID so we reset polygon control points completely
+            const tempId = AppState.editingTrayId;
+            AppState.editingTrayId = null;
 
-        fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
-            const scale = Math.min(
-                (artCanvas.width * 0.8) / fImg.width, 
-                (artCanvas.height * 0.8) / fImg.height
-            );
-            fImg.scale(scale);
-            fImg.set({ 
-                left: (artCanvas.width - fImg.getScaledWidth())/2, 
-                top: (artCanvas.height - fImg.getScaledHeight())/2, 
-                selectable: false 
+            fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
+                const scale = Math.min(
+                    (artCanvas.width * 0.8) / fImg.width, 
+                    (artCanvas.height * 0.8) / fImg.height
+                );
+                fImg.scale(scale);
+                fImg.set({ 
+                    left: (artCanvas.width - fImg.getScaledWidth())/2, 
+                    top: (artCanvas.height - fImg.getScaledHeight())/2, 
+                    selectable: false 
+                });
+                
+                AppState.artMaskImage = fImg;
+                artCanvas.add(AppState.artMaskImage);
+                setupArtPerspectiveMode(true);
+                
+                AppState.editingTrayId = tempId;
             });
-            
-            AppState.artMaskImage = fImg;
-            artCanvas.add(AppState.artMaskImage);
-            setupArtPerspectiveMode(true);
-            
-            AppState.editingTrayId = tempId;
         });
     };
     img.src = AppState.workingArtSrc;
@@ -378,44 +380,45 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     finalCtx.clip();
     finalCtx.drawImage(flatCanvas, 0, 0);
     
-    const finalDataUrl = finalCanvas.toDataURL('image/png');
-    const trayId = AppState.editingTrayId || 'tray_' + Date.now();
-    const rawSrc = AppState.workingArtSrc;
+    window.exportToWebP(finalCanvas, (finalDataUrl) => {
+        const trayId = AppState.editingTrayId || 'tray_' + Date.now();
+        const rawSrc = AppState.workingArtSrc;
 
-    AppState.trayItems[trayId] = {
-        id: trayId,
-        rawImgSrc: rawSrc,
-        shape: shapeToApply,
-        physicalW: physicalW,
-        physicalH: physicalH,
-        polygonP: P,
-        finalDataUrl: finalDataUrl
-    };
+        AppState.trayItems[trayId] = {
+            id: trayId,
+            rawImgSrc: rawSrc,
+            shape: shapeToApply,
+            physicalW: physicalW,
+            physicalH: physicalH,
+            polygonP: P,
+            finalDataUrl: finalDataUrl
+        };
 
-    if (AppState.editingTrayId) {
-        const imgEl = tray.querySelector(`img[data-id="${trayId}"]`);
-        if (imgEl) imgEl.src = finalDataUrl;
-        
-        canvas.getObjects().forEach(obj => {
-            if (obj.customData && obj.customData.trayId === trayId) {
-                obj.setSrc(finalDataUrl, () => {
-                    const targetPixelWidth = physicalW * AppState.pixelsPerInch;
-                    const targetPixelHeight = physicalH * AppState.pixelsPerInch;
-                    obj.set({
-                        scaleX: targetPixelWidth / obj.width,
-                        scaleY: targetPixelHeight / obj.height,
-                        customData: { shape: shapeToApply, trayId: trayId }
+        if (AppState.editingTrayId) {
+            const imgEl = tray.querySelector(`img[data-id="${trayId}"]`);
+            if (imgEl) imgEl.src = finalDataUrl;
+            
+            canvas.getObjects().forEach(obj => {
+                if (obj.customData && obj.customData.trayId === trayId) {
+                    obj.setSrc(finalDataUrl, () => {
+                        const targetPixelWidth = physicalW * AppState.pixelsPerInch;
+                        const targetPixelHeight = physicalH * AppState.pixelsPerInch;
+                        obj.set({
+                            scaleX: targetPixelWidth / obj.width,
+                            scaleY: targetPixelHeight / obj.height,
+                            customData: { shape: shapeToApply, trayId: trayId }
+                        });
+                        obj.setCoords();
+                        canvas.requestRenderAll();
                     });
-                    obj.setCoords();
-                    canvas.requestRenderAll();
-                });
-            }
-        });
-    } else {
-        window.addToTray(trayId);
-    }
-    
-    closeArtModal();
+                }
+            });
+        } else {
+            window.addToTray(trayId);
+        }
+        
+        closeArtModal();
+    });
 });
 
 window.addToTray = function(trayId) {

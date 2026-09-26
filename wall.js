@@ -27,9 +27,8 @@ document.getElementById('btn-cancel-change-wall').addEventListener('click', () =
 document.getElementById('file-wall').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        fabric.Image.fromURL(event.target.result, (img) => {
+    window.processImageFile(e.target.files[0], (webpUrl) => {
+        fabric.Image.fromURL(webpUrl, (img) => {
             if (!img || !img.width) {
                 alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
                 return;
@@ -39,8 +38,8 @@ document.getElementById('file-wall').addEventListener('change', (e) => {
             AppState.rawWallImg = img;
             openWallModalWithImage(img);
         });
-    };
-    reader.readAsDataURL(e.target.files[0]);
+    });
+    
     e.target.value = '';
 });
 
@@ -55,16 +54,18 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
     ctx.rotate(90 * Math.PI/180);
     ctx.drawImage(img, -img.width/2, -img.height/2);
     
-    fabric.Image.fromURL(c.toDataURL('image/png'), (fImg) => {
-        AppState.rawWallImg = fImg;
-        AppState.isRedefiningWall = false; 
-        
-        wallScaleCanvas.clear();
-        AppState.wallMaskImage = null;
-        AppState.wallPoly = null;
-        AppState.wallCorners = [];
-        
-        openWallModalWithImage(fImg);
+    window.exportToWebP(c, (webpUrl) => {
+        fabric.Image.fromURL(webpUrl, (fImg) => {
+            AppState.rawWallImg = fImg;
+            AppState.isRedefiningWall = false; 
+            
+            wallScaleCanvas.clear();
+            AppState.wallMaskImage = null;
+            AppState.wallPoly = null;
+            AppState.wallCorners = [];
+            
+            openWallModalWithImage(fImg);
+        });
     });
 });
 
@@ -285,23 +286,32 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     }
     finalCtx.putImageData(dstData, 0, 0);
 
-    fabric.Image.fromURL(finalCanvas.toDataURL('image/png'), (img) => {
-        AppState.logicalWidth = expW;
-        AppState.logicalHeight = expH;
-        
-        canvas.clear(); 
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
-        window.resizeCanvas();
-        
-        document.getElementById('btn-art').disabled = false;
-        document.getElementById('btn-wall').textContent = "Change Wall";
-        
-        document.getElementById('ruler-h').style.display = 'flex';
-        document.getElementById('ruler-v').style.display = 'flex';
-        
-        if (window.drawRulers) window.drawRulers();
-        
-        closeWallModal();
+    window.exportToWebP(finalCanvas, (webpUrl) => {
+        fabric.Image.fromURL(webpUrl, (img) => {
+            AppState.logicalWidth = expW;
+            AppState.logicalHeight = expH;
+            
+            img.set({
+                scaleX: expW / img.width,
+                scaleY: expH / img.height,
+                originX: 'left',
+                originY: 'top'
+            });
+            
+            canvas.clear(); 
+            canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+            window.resizeCanvas();
+            
+            document.getElementById('btn-art').disabled = false;
+            document.getElementById('btn-wall').textContent = "Change Wall";
+            
+            document.getElementById('ruler-h').style.display = 'flex';
+            document.getElementById('ruler-v').style.display = 'flex';
+            
+            if (window.drawRulers) window.drawRulers();
+            
+            closeWallModal();
+        });
     });
 });
 

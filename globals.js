@@ -92,6 +92,42 @@ window.updateCanvasColors = function() {
     if (window.drawRulers) window.drawRulers();
 };
 
+// Memory & Format Centralization Utility
+window.exportToWebP = function(source, callback) {
+    let width = source.naturalWidth || source.width;
+    let height = source.naturalHeight || source.height;
+    const MAX_SIZE = 4096;
+
+    if (width > MAX_SIZE || height > MAX_SIZE) {
+        if (width > height) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+        } else {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+        }
+    }
+
+    const outputCanvas = document.createElement('canvas');
+    outputCanvas.width = width;
+    outputCanvas.height = height;
+    const ctx = outputCanvas.getContext('2d');
+    ctx.drawImage(source, 0, 0, width, height);
+
+    callback(outputCanvas.toDataURL('image/webp', 0.9));
+};
+
+window.processImageFile = function(file, callback) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => window.exportToWebP(img, callback);
+        img.onerror = () => alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
 // Math helper to determine if a set of points forms a strictly convex polygon
 function isConvex(pts) {
     function crossProduct(a, b, c) {
