@@ -162,13 +162,19 @@ canvas.on('mouse:out', (e) => {
     if (window.drawRulers) window.drawRulers();
 });
 
-// Centralized Grid Snapping Math
-function applyGridSnap(value) {
+// Centralized Grid Snapping Math with Ruler Origin Adjustment
+function applyGridSnap(value, axis) {
     if (!document.getElementById('toggle-grid').checked || !AppState.pixelsPerInch) return value;
     const rawVal = parseFloat(document.getElementById('input-snap-val').value);
     const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
     const gridSize = AppState.pixelsPerInch * snapVal;
-    return Math.round(value / gridSize) * gridSize;
+    
+    let offset = 0;
+    if (AppState.coreWallBounds) {
+        offset = axis === 'x' ? AppState.coreWallBounds.left : AppState.coreWallBounds.top;
+    }
+    
+    return Math.round((value - offset) / gridSize) * gridSize + offset;
 }
 
 // Drag and Drop Logic
@@ -181,8 +187,8 @@ function calculateDropPosition(clientX, clientY, pW, pH) {
     let pointerX = (clientX - rect.left) / zoom;
     let pointerY = (clientY - rect.top) / zoom;
 
-    pointerX = applyGridSnap(pointerX);
-    pointerY = applyGridSnap(pointerY);
+    pointerX = applyGridSnap(pointerX, 'x');
+    pointerY = applyGridSnap(pointerY, 'y');
 
     const guidesX = [];
     const guidesY = [];
@@ -600,10 +606,10 @@ function startDragGuide(e, type) {
         AppState.mousePos = { x: pt.x, y: pt.y };
         
         if (isHorizontal) {
-            pt.y = applyGridSnap(pt.y);
+            pt.y = applyGridSnap(pt.y, 'y');
             guide.set({ y1: pt.y, y2: pt.y, top: pt.y });
         } else {
-            pt.x = applyGridSnap(pt.x);
+            pt.x = applyGridSnap(pt.x, 'x');
             guide.set({ x1: pt.x, x2: pt.x, left: pt.x });
         }
         
@@ -650,9 +656,9 @@ canvas.on('object:moving', (e) => {
 
     if (target.isGuide) {
         if (target.lockMovementX) {
-            target.set('top', applyGridSnap(target.top));
+            target.set('top', applyGridSnap(target.top, 'y'));
         } else {
-            target.set('left', applyGridSnap(target.left));
+            target.set('left', applyGridSnap(target.left, 'x'));
         }
 
         const bounds = AppState.coreWallBounds || {left:0, top:0};
@@ -666,8 +672,8 @@ canvas.on('object:moving', (e) => {
     }
     
     target.set({
-        left: applyGridSnap(target.left),
-        top: applyGridSnap(target.top)
+        left: applyGridSnap(target.left, 'x'),
+        top: applyGridSnap(target.top, 'y')
     });
 
     // Always update coordinates before reading the bounding rect
