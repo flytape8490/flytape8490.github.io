@@ -1,40 +1,23 @@
 document.getElementById('btn-art').addEventListener('click', () => document.getElementById('file-art').click());
 document.getElementById('file-art').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    window.processImageFile(e.target.files[0], (webpUrl) => {
         AppState.editingTrayId = null;
-        AppState.workingArtSrc = event.target.result;
-        fabric.Image.fromURL(event.target.result, (img) => {
-            if (!img || !img.width) {
-                alert("Failed to load image. Please ensure you are using a standard format like JPG or PNG.");
-                return;
-            }
-            
+        AppState.workingArtSrc = webpUrl;
+        fabric.Image.fromURL(webpUrl, (img) => {
+            if (!img || !img.width) return alert("Failed to load image. Please ensure you are using a standard format.");
             artModal.style.display = 'flex';
-            
-            artCanvas.setWidth(artCanvasContainer.clientWidth);
-            artCanvas.setHeight(artCanvasContainer.clientHeight);
-            
-            const scale = Math.min(
-                (artCanvas.width * 0.8) / img.width, 
-                (artCanvas.height * 0.8) / img.height
+            AppState.artMaskImage = window.setupModalCanvasImage(
+                artCanvas, 
+                artCanvasContainer, 
+                img, 
+                document.querySelector('#art-modal .modal-content'),
+                true
             );
-            img.scale(scale);
-            
-            img.set({ 
-                left: (artCanvas.width - img.getScaledWidth())/2, 
-                top: (artCanvas.height - img.getScaledHeight())/2, 
-                selectable: false 
-            });
-            
-            AppState.artMaskImage = img;
-            artCanvas.add(AppState.artMaskImage);
-            
             setupArtPerspectiveMode();
+            document.getElementById('input-art-w').focus();
         });
-    };
-    reader.readAsDataURL(e.target.files[0]);
+    });
     e.target.value = ''; 
 });
 
@@ -54,73 +37,70 @@ window.openArtUpdate = function(trayId) {
 
     fabric.Image.fromURL(item.rawImgSrc, (img) => {
         artModal.style.display = 'flex';
-        artCanvas.setWidth(artCanvasContainer.clientWidth);
-        artCanvas.setHeight(artCanvasContainer.clientHeight);
-        const scale = Math.min(
-            (artCanvas.width * 0.8) / img.width, 
-            (artCanvas.height * 0.8) / img.height
+        AppState.artMaskImage = window.setupModalCanvasImage(
+            artCanvas, 
+            artCanvasContainer, 
+            img, 
+            document.querySelector('#art-modal .modal-content'),
+            true
         );
-        img.scale(scale);
-        img.set({ 
-            left: (artCanvas.width - img.getScaledWidth())/2, 
-            top: (artCanvas.height - img.getScaledHeight())/2, 
-            selectable: false 
-        });
-        AppState.artMaskImage = img;
-        artCanvas.add(AppState.artMaskImage);
         setupArtPerspectiveMode();
     });
 };
 
 document.getElementById('btn-rotate-art').addEventListener('click', () => {
-    if (!AppState.workingArtSrc) return;
+    if (!AppState.workingArtSrc || !AppState.artMaskImage) return;
+    
+    const forcedPolygon = window.calculateRotatedPolygon(AppState.artCorners, AppState.artMaskImage);
+    
     const img = new Image();
     img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.height;
-        c.height = img.width;
-        const ctx = c.getContext('2d');
-        ctx.translate(c.width/2, c.height/2);
-        ctx.rotate(90 * Math.PI/180);
-        ctx.drawImage(img, -img.width/2, -img.height/2);
-        
-        AppState.workingArtSrc = c.toDataURL('image/png');
-        
-        AppState.artCorners.forEach(corner => artCanvas.remove(corner));
-        AppState.artCorners = [];
-        if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
-        if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
-        if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
-        if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
+        window.rotateImageElement(img, (webpUrl) => {
+            AppState.workingArtSrc = webpUrl;
+            AppState.artCorners.forEach(corner => artCanvas.remove(corner));
+            AppState.artCorners = [];
+            if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
+            if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
+            if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
+            if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
 
-        // Temporarily null editing ID so we reset polygon control points completely
-        const tempId = AppState.editingTrayId;
-        AppState.editingTrayId = null;
+            const tempId = AppState.editingTrayId;
+            AppState.editingTrayId = null;
 
-        fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
-            const scale = Math.min(
-                (artCanvas.width * 0.8) / fImg.width, 
-                (artCanvas.height * 0.8) / fImg.height
-            );
-            fImg.scale(scale);
-            fImg.set({ 
-                left: (artCanvas.width - fImg.getScaledWidth())/2, 
-                top: (artCanvas.height - fImg.getScaledHeight())/2, 
-                selectable: false 
+            fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
+                AppState.artMaskImage = window.setupModalCanvasImage(
+                    artCanvas, 
+                    artCanvasContainer, 
+                    fImg, 
+                    document.querySelector('#art-modal .modal-content'),
+                    false 
+                );
+                
+                AppState.editingTrayId = tempId;
+                setupArtPerspectiveMode(false, forcedPolygon);
+                window.swapDimensions('input-art-w', 'input-art-h');
             });
-            
-            AppState.artMaskImage = fImg;
-            artCanvas.add(AppState.artMaskImage);
-            setupArtPerspectiveMode(true);
-            
-            AppState.editingTrayId = tempId;
         });
     };
     img.src = AppState.workingArtSrc;
 });
 
-function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
-    if (!AppState.editingTrayId && !ignoreSavedPolygon) {
+window.addEventListener('resize', () => {
+    const artModalContent = document.querySelector('#art-modal .modal-content');
+    if (artModal.style.display === 'flex' && AppState.artMaskImage) {
+        window.resizeEditorCanvas(
+            artCanvas, 
+            artCanvasContainer, 
+            AppState.artMaskImage, 
+            artModalContent, 
+            AppState.artCorners, 
+            renderArtPoly
+        );
+    }
+});
+
+function setupArtPerspectiveMode(ignoreSavedPolygon = false, forcedPolygon = null) {
+    if (!AppState.editingTrayId && !ignoreSavedPolygon && !forcedPolygon) {
         AppState.currentArtShape = 'rect';
         document.getElementById('input-art-w').value = '';
         document.getElementById('input-art-h').value = '';
@@ -134,7 +114,15 @@ function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
     const imgH = AppState.artMaskImage.getScaledHeight();
 
     let points;
-    if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
+    if (forcedPolygon) {
+        points = forcedPolygon.map(p => ({
+            x: imgL + (p.x * AppState.artMaskImage.scaleX),
+            y: imgT + (p.y * AppState.artMaskImage.scaleY)
+        }));
+        if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
+            AppState.trayItems[AppState.editingTrayId].polygonP = forcedPolygon;
+        }
+    } else if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
         points = AppState.trayItems[AppState.editingTrayId].polygonP.map(p => ({
             x: imgL + (p.x * AppState.artMaskImage.scaleX),
             y: imgT + (p.y * AppState.artMaskImage.scaleY)
@@ -191,7 +179,6 @@ function renderArtPoly() {
         });
         AppState.artPoly.isArtPoly = true;
         artCanvas.add(AppState.artPoly);
-        
         if (AppState.artMaskImage) AppState.artMaskImage.moveTo(0);
         AppState.artPoly.moveTo(1);
     } else {
@@ -241,26 +228,16 @@ function renderArtPoly() {
         AppState.artOvalFill.moveTo(2);
         AppState.artPoly.moveTo(3);
     }
-    
     AppState.artCorners.forEach(c => c.bringToFront());
 }
 
 artCanvas.on('object:moving', (e) => {
     if (e.target.type === 'circle' && e.target.customIndex !== undefined) {
-        
         const minBoundX = AppState.artMaskImage.left;
         const minBoundY = AppState.artMaskImage.top;
         const maxBoundX = minBoundX + AppState.artMaskImage.getScaledWidth();
         const maxBoundY = minBoundY + AppState.artMaskImage.getScaledHeight();
-
-        window.enforcePolygonBounds(
-            e.target, 
-            AppState.artCorners, 
-            minBoundX, 
-            minBoundY, 
-            maxBoundX, 
-            maxBoundY
-        );
+        window.enforcePolygonBounds(e.target, AppState.artCorners, minBoundX, minBoundY, maxBoundX, maxBoundY);
         renderArtPoly();
     }
 });
@@ -321,47 +298,8 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     rawCanvas.height = AppState.artMaskImage.height;
     const rawCtx = rawCanvas.getContext('2d');
     rawCtx.drawImage(AppState.artMaskImage.getElement(), 0, 0);
-    const srcData = rawCtx.getImageData(0, 0, rawCanvas.width, rawCanvas.height);
-    const src8 = srcData.data;
-    const srcW = rawCanvas.width;
-    const srcH = rawCanvas.height;
 
-    const flatCanvas = document.createElement('canvas');
-    flatCanvas.width = dstW;
-    flatCanvas.height = dstH;
-    const flatCtx = flatCanvas.getContext('2d');
-    const dstData = flatCtx.createImageData(dstW, dstH);
-    const dst8 = dstData.data;
-
-    const H = calculateHomography(P);
-
-    let dstIdx = 0;
-    for (let y = 0; y < dstH; y++) {
-        for (let x = 0; x < dstW; x++) {
-            
-            const u = x / dstW;
-            const v = y / dstH;
-
-            const denom = H.g * u + H.h * v + 1;
-            const srcX = (H.a * u + H.b * v + H.c) / denom;
-            const srcY = (H.d * u + H.e * v + H.f) / denom;
-
-            const ix = Math.round(srcX);
-            const iy = Math.round(srcY);
-
-            if (ix >= 0 && ix < srcW && iy >= 0 && iy < srcH && u >= 0 && u <= 1 && v >= 0 && v <= 1) {
-                const srcIdx = (iy * srcW + ix) * 4;
-                dst8[dstIdx] = src8[srcIdx];
-                dst8[dstIdx+1] = src8[srcIdx+1];
-                dst8[dstIdx+2] = src8[srcIdx+2];
-                dst8[dstIdx+3] = src8[srcIdx+3]; 
-            } else {
-                dst8[dstIdx+3] = 0; 
-            }
-            dstIdx += 4;
-        }
-    }
-    flatCtx.putImageData(dstData, 0, 0);
+    const flatCanvas = window.extractPerspective(rawCanvas, dstW, dstH, P, dstW, dstH, 0, 0, false);
 
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = dstW;
@@ -378,80 +316,45 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     finalCtx.clip();
     finalCtx.drawImage(flatCanvas, 0, 0);
     
-    const finalDataUrl = finalCanvas.toDataURL('image/png');
-    const trayId = AppState.editingTrayId || 'tray_' + Date.now();
-    const rawSrc = AppState.workingArtSrc;
+    window.exportToWebP(finalCanvas, (finalDataUrl) => {
+        const trayId = AppState.editingTrayId || 'tray_' + Date.now();
+        const rawSrc = AppState.workingArtSrc;
 
-    AppState.trayItems[trayId] = {
-        id: trayId,
-        rawImgSrc: rawSrc,
-        shape: shapeToApply,
-        physicalW: physicalW,
-        physicalH: physicalH,
-        polygonP: P,
-        finalDataUrl: finalDataUrl
-    };
+        AppState.trayItems[trayId] = {
+            id: trayId,
+            rawImgSrc: rawSrc,
+            shape: shapeToApply,
+            physicalW: physicalW,
+            physicalH: physicalH,
+            polygonP: P,
+            finalDataUrl: finalDataUrl
+        };
 
-    if (AppState.editingTrayId) {
-        const imgEl = tray.querySelector(`img[data-id="${trayId}"]`);
-        if (imgEl) imgEl.src = finalDataUrl;
-        
-        canvas.getObjects().forEach(obj => {
-            if (obj.customData && obj.customData.trayId === trayId) {
-                obj.setSrc(finalDataUrl, () => {
-                    const targetPixelWidth = physicalW * AppState.pixelsPerInch;
-                    const targetPixelHeight = physicalH * AppState.pixelsPerInch;
-                    obj.set({
-                        scaleX: targetPixelWidth / obj.width,
-                        scaleY: targetPixelHeight / obj.height,
-                        customData: { shape: shapeToApply, trayId: trayId }
+        if (AppState.editingTrayId) {
+            const imgEl = document.getElementById('tray').querySelector(`img[data-id="${trayId}"]`);
+            if (imgEl) imgEl.src = finalDataUrl;
+            
+            canvas.getObjects().forEach(obj => {
+                if (obj.customData && obj.customData.trayId === trayId) {
+                    obj.setSrc(finalDataUrl, () => {
+                        const targetPixelWidth = physicalW * AppState.pixelsPerInch;
+                        const targetPixelHeight = physicalH * AppState.pixelsPerInch;
+                        obj.set({
+                            scaleX: targetPixelWidth / obj.width,
+                            scaleY: targetPixelHeight / obj.height,
+                            customData: { shape: shapeToApply, trayId: trayId }
+                        });
+                        obj.setCoords();
+                        canvas.requestRenderAll();
                     });
-                    obj.setCoords();
-                    canvas.requestRenderAll();
-                });
-            }
-        });
-    } else {
-        window.addToTray(trayId);
-    }
-    
-    closeArtModal();
+                }
+            });
+        } else {
+            window.addToTray(trayId);
+        }
+        closeArtModal();
+    });
 });
-
-window.addToTray = function(trayId) {
-    document.getElementById('tray-empty-text').style.display = 'none';
-    
-    const imgEl = document.createElement('img');
-    imgEl.src = AppState.trayItems[trayId].finalDataUrl;
-    imgEl.className = 'tray-item';
-    imgEl.draggable = true;
-    imgEl.dataset.id = trayId;
-    
-    imgEl.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', trayId);
-        AppState.draggingTrayId = trayId;
-
-        const ghost = document.getElementById('drag-ghost');
-        if (ghost) {
-            e.dataTransfer.setDragImage(ghost, 0, 0);
-        }
-    });
-
-    imgEl.addEventListener('dragend', (e) => {
-        AppState.draggingTrayId = null;
-        AppState.dragBounds = null;
-        AppState.mousePos = null;
-        if (AppState.dragPreviewObj) {
-            canvas.remove(AppState.dragPreviewObj);
-            AppState.dragPreviewObj = null;
-            canvas.requestRenderAll();
-        }
-        AppState.isLoadingPreview = false;
-        if (window.drawRulers) window.drawRulers();
-    });
-
-    tray.appendChild(imgEl);
-};
 
 document.getElementById('btn-cancel-art').addEventListener('click', closeArtModal);
 

@@ -1,17 +1,4 @@
-export function extractPerspective(srcCanvas, dstW, dstH, P, coreW, coreH, offsetX, offsetY, maintainContext) {
-    const srcCtx = srcCanvas.getContext('2d');
-    const srcData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
-    const src8 = srcData.data;
-    const srcW = srcCanvas.width;
-    const srcH = srcCanvas.height;
-
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = dstW;
-    outCanvas.height = dstH;
-    const outCtx = outCanvas.getContext('2d');
-    const dstData = outCtx.createImageData(dstW, dstH);
-    const dst8 = dstData.data;
-
+window.calculateHomography = function(P) {
     const dx1 = P[1].x - P[2].x;
     const dx2 = P[3].x - P[2].x;
     const sx = P[0].x - P[1].x + P[2].x - P[3].x;
@@ -30,6 +17,25 @@ export function extractPerspective(srcCanvas, dstW, dstH, P, coreW, coreH, offse
     const e = P[3].y - P[0].y + h * P[3].y;
     const f = P[0].y;
 
+    return { a, b, c, d, e, f, g, h };
+};
+
+window.extractPerspective = function(srcCanvas, dstW, dstH, P, coreW, coreH, offsetX, offsetY, maintainContext) {
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = dstW;
+    outCanvas.height = dstH;
+    const outCtx = outCanvas.getContext('2d');
+    const dstData = outCtx.createImageData(dstW, dstH);
+    const dst8 = dstData.data;
+
+    const srcCtx = srcCanvas.getContext('2d');
+    const srcData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+    const src8 = srcData.data;
+    const srcW = srcCanvas.width;
+    const srcH = srcCanvas.height;
+
+    const H = window.calculateHomography(P);
+
     let dstIdx = 0;
     for (let y = 0; y < dstH; y++) {
         for (let x = 0; x < dstW; x++) {
@@ -37,9 +43,9 @@ export function extractPerspective(srcCanvas, dstW, dstH, P, coreW, coreH, offse
             const u = (x - offsetX) / coreW;
             const v = (y - offsetY) / coreH;
 
-            const denom = g * u + h * v + 1;
-            const srcX = (a * u + b * v + c) / denom;
-            const srcY = (d * u + e * v + f) / denom;
+            const denom = H.g * u + H.h * v + 1;
+            const srcX = (H.a * u + H.b * v + H.c) / denom;
+            const srcY = (H.d * u + H.e * v + H.f) / denom;
 
             const ix = Math.round(srcX);
             const iy = Math.round(srcY);
@@ -49,14 +55,12 @@ export function extractPerspective(srcCanvas, dstW, dstH, P, coreW, coreH, offse
                 const isOutside = (u < 0 || u > 1 || v < 0 || v > 1);
                 
                 if (maintainContext) {
-                    // Wall mode: dim out-of-bounds pixels
                     const multiplier = isOutside ? 0.35 : 1.0;
                     dst8[dstIdx] = src8[srcIdx] * multiplier;
                     dst8[dstIdx+1] = src8[srcIdx+1] * multiplier;
                     dst8[dstIdx+2] = src8[srcIdx+2] * multiplier;
                     dst8[dstIdx+3] = src8[srcIdx+3]; 
                 } else {
-                    // Art mode: hard cut transparent out-of-bounds
                     if (!isOutside) {
                         dst8[dstIdx] = src8[srcIdx];
                         dst8[dstIdx+1] = src8[srcIdx+1];
@@ -76,6 +80,7 @@ export function extractPerspective(srcCanvas, dstW, dstH, P, coreW, coreH, offse
             dstIdx += 4;
         }
     }
+    
     outCtx.putImageData(dstData, 0, 0);
     return outCanvas;
-}
+};
