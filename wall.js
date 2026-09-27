@@ -53,7 +53,8 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
                 wallScaleCanvas, 
                 wallScaleCanvasContainer, 
                 fImg, 
-                document.querySelector('#wall-modal .modal-content')
+                document.querySelector('#wall-modal .modal-content'),
+                false // Tell utility this is a rotation, preserve modal dimensions
             );
             
             startWallPerspectiveMode(true);
@@ -93,7 +94,8 @@ function openWallModalWithImage(img) {
             wallScaleCanvas, 
             wallScaleCanvasContainer, 
             modalImg, 
-            document.querySelector('#wall-modal .modal-content')
+            document.querySelector('#wall-modal .modal-content'),
+            true
         );
         startWallPerspectiveMode();
     });

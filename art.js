@@ -11,7 +11,8 @@ document.getElementById('file-art').addEventListener('change', (e) => {
                 artCanvas, 
                 artCanvasContainer, 
                 img, 
-                document.querySelector('#art-modal .modal-content')
+                document.querySelector('#art-modal .modal-content'),
+                true
             );
             setupArtPerspectiveMode();
             document.getElementById('input-art-w').focus();
@@ -40,7 +41,8 @@ window.openArtUpdate = function(trayId) {
             artCanvas, 
             artCanvasContainer, 
             img, 
-            document.querySelector('#art-modal .modal-content')
+            document.querySelector('#art-modal .modal-content'),
+            true
         );
         setupArtPerspectiveMode();
     });
@@ -67,7 +69,8 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
                     artCanvas, 
                     artCanvasContainer, 
                     fImg, 
-                    document.querySelector('#art-modal .modal-content')
+                    document.querySelector('#art-modal .modal-content'),
+                    false // Tell utility this is a rotation, preserve modal dimensions
                 );
                 setupArtPerspectiveMode(true);
                 AppState.editingTrayId = tempId;

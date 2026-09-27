@@ -149,18 +149,20 @@ window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modal
     fabricCanvas.requestRenderAll();
 };
 
-window.setupModalCanvasImage = function(fabricCanvas, containerEl, fabricImg, modalContentEl) {
-    const imgRatio = fabricImg.width / fabricImg.height;
-    
-    if (fabricImg.width > fabricImg.height) {
-        modalContentEl.classList.add('landscape');
-        modalContentEl.classList.remove('portrait');
-    } else {
-        modalContentEl.classList.add('portrait');
-        modalContentEl.classList.remove('landscape');
-    }
+window.setupModalCanvasImage = function(fabricCanvas, containerEl, fabricImg, modalContentEl, isInitialLoad = true) {
+    if (isInitialLoad) {
+        const imgRatio = fabricImg.width / fabricImg.height;
+        
+        if (fabricImg.width > fabricImg.height) {
+            modalContentEl.classList.add('landscape');
+            modalContentEl.classList.remove('portrait');
+        } else {
+            modalContentEl.classList.add('portrait');
+            modalContentEl.classList.remove('landscape');
+        }
 
-    containerEl.style.aspectRatio = imgRatio;
+        containerEl.style.aspectRatio = imgRatio;
+    }
 
     fabricImg.set({ selectable: false });
     fabricCanvas.add(fabricImg);
