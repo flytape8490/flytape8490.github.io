@@ -75,6 +75,7 @@ body {
     padding: 12px; background: var(--bg-panel); 
     box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10;
     display: flex;
+    flex-shrink: 0; /* Prevents toolbar from shrinking when canvas gets large */
 }
 
 .control-group { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex-grow: 1; }
@@ -123,7 +124,7 @@ input[type="number"], input[type="text"] {
     background: var(--input-bg); color: var(--text-main); max-width: 100px;
 }
 
-#workspace { display: flex; flex-grow: 1; position: relative; width: 100%; overflow: hidden; }
+#workspace { display: flex; flex-grow: 1; position: relative; width: 100%; overflow: hidden; min-height: 0; }
 
 #workspace-column { 
     display: flex; flex-direction: column; flex-grow: 1; width: 100%; 
@@ -190,6 +191,7 @@ input[type="number"], input[type="text"] {
 #tray { 
     height: 120px; background: var(--bg-tray); display: flex; padding: 10px; 
     gap: 15px; overflow-x: auto; border-top: 1px solid var(--border-color); align-items: center;
+    flex-shrink: 0; /* Prevents tray from shrinking when canvas gets large */
 }
 #tray-empty-text { color: var(--text-muted); margin: auto; font-size: 14px; }
 .tray-item {
@@ -228,7 +230,7 @@ input[type="number"], input[type="text"] {
 .modal-content.editor-modal.portrait {
     height: 85vh;
     width: fit-content;
-    min-width: 320px; 
+    min-width: 650px; 
 }
 
 /* Flex Layout for Headers */
