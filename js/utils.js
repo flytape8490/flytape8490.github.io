@@ -76,32 +76,35 @@ window.processImageFile = function(file, callback) {
     reader.readAsDataURL(file);
 };
 
-window.rotateImageElement = function(imgSource, callback) {
-    const sourceW = imgSource.naturalWidth || imgSource.width;
-    const sourceH = imgSource.naturalHeight || imgSource.height;
-    
-    const c = document.createElement('canvas');
-    c.width = sourceH;
-    c.height = sourceW;
-    const ctx = c.getContext('2d');
-    ctx.translate(c.width/2, c.height/2);
-    ctx.rotate(90 * Math.PI/180);
-    ctx.drawImage(imgSource, -sourceW/2, -sourceH/2);
-    
-    window.exportToWebP(c, callback);
-};
+// ==========================================
+// DRY PERSPECTIVE EDITOR UTILITIES
+// ==========================================
 
-window.swapDimensions = function(wId, hId) {
-    const wInput = document.getElementById(wId);
-    const hInput = document.getElementById(hId);
-    if (wInput && hInput) {
-        const temp = wInput.value;
-        wInput.value = hInput.value;
-        hInput.value = temp;
+window.rotateImageElement = function(imgSource, callback) {
+    const doRotate = (src) => {
+        const sourceW = src.naturalWidth || src.width;
+        const sourceH = src.naturalHeight || src.height;
+        const c = document.createElement('canvas');
+        c.width = sourceH;
+        c.height = sourceW;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width/2, c.height/2);
+        ctx.rotate(90 * Math.PI/180);
+        ctx.drawImage(src, -sourceW/2, -sourceH/2);
+        window.exportToWebP(c, callback);
+    };
+
+    if (typeof imgSource === 'string') {
+        const img = new Image();
+        img.onload = () => doRotate(img);
+        img.src = imgSource;
+    } else {
+        doRotate(imgSource);
     }
 };
 
 window.calculateRotatedPolygon = function(corners, fabricImg) {
+    if (!corners || corners.length === 0) return null;
     const scaleX = fabricImg.scaleX || 1;
     const scaleY = fabricImg.scaleY || 1;
     const leftOff = fabricImg.left || 0;
@@ -109,7 +112,7 @@ window.calculateRotatedPolygon = function(corners, fabricImg) {
     const imgW = fabricImg.width;
     const imgH = fabricImg.height;
     
-    // Extract absolute relative points (0 to imgW/imgH)
+    // Extract absolute relative points
     const P = corners.map(c => ({
         x: (c.left - leftOff) / scaleX,
         y: (c.top - topOff) / scaleY
@@ -122,13 +125,100 @@ window.calculateRotatedPolygon = function(corners, fabricImg) {
     }));
     
     // Shift indices to maintain [TL, TR, BR, BL] bounding integrity
-    return [
-        P_rot[3],
-        P_rot[0],
-        P_rot[1],
-        P_rot[2]
-    ];
+    return [ P_rot[3], P_rot[0], P_rot[1], P_rot[2] ];
 };
+
+window.handleEditorRotation = function(options) {
+    if (!options.rawImg || !options.maskImg) return;
+    
+    const forcedPolygon = window.calculateRotatedPolygon(options.corners, options.maskImg);
+    const rawElement = (options.rawImg instanceof fabric.Image) ? options.rawImg.getElement() : options.rawImg;
+
+    window.rotateImageElement(rawElement, (webpUrl) => {
+        options.canvas.clear();
+        
+        fabric.Image.fromURL(webpUrl, (fImg) => {
+            const newMaskImage = window.setupModalCanvasImage(
+                options.canvas, 
+                options.canvasContainer, 
+                fImg, 
+                options.modalContent,
+                false 
+            );
+            
+            window.swapDimensions(options.wInputId, options.hInputId);
+            if (options.onComplete) options.onComplete(webpUrl, fImg, newMaskImage, forcedPolygon);
+        });
+    });
+};
+
+window.swapDimensions = function(wId, hId) {
+    const wInput = document.getElementById(wId);
+    const hInput = document.getElementById(hId);
+    if (wInput && hInput) {
+        const temp = wInput.value;
+        wInput.value = hInput.value;
+        hInput.value = temp;
+    }
+};
+
+window.buildPerspectiveCorners = function(options) {
+    const imgL = options.maskImg.left;
+    const imgT = options.maskImg.top;
+    const imgW = options.maskImg.getScaledWidth();
+    const imgH = options.maskImg.getScaledHeight();
+
+    let points;
+    if (options.forcedPolygon) {
+        points = options.forcedPolygon.map(p => ({
+            x: imgL + (p.x * options.maskImg.scaleX),
+            y: imgT + (p.y * options.maskImg.scaleY)
+        }));
+    } else if (options.isEditing && options.savedPolygon && !options.ignoreSavedPolygon) {
+        points = options.savedPolygon.map(p => ({
+            x: imgL + (p.x * options.maskImg.scaleX),
+            y: imgT + (p.y * options.maskImg.scaleY)
+        }));
+    } else {
+        const padX = imgW * 0.1;
+        const padY = imgH * 0.1;
+        points = [
+            { x: imgL + padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + padY }, 
+            { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
+            { x: imgL + padX, y: imgT + imgH - padY } 
+        ];
+    }
+
+    return points.map((p, index) => {
+        const circle = new fabric.Circle({
+            radius: 12, fill: '#ffffff', stroke: options.color, strokeWidth: 4,
+            left: p.x, top: p.y, originX: 'center', originY: 'center',
+            hasBorders: false, hasControls: false, customIndex: index
+        });
+        circle.isCorner = true;
+        circle._lastValidX = p.x;
+        circle._lastValidY = p.y;
+        options.canvas.add(circle);
+        return circle;
+    });
+};
+
+window.getRelativePolygon = function(corners, maskImg) {
+    const scaleX = maskImg.scaleX;
+    const scaleY = maskImg.scaleY;
+    const leftOff = maskImg.left;
+    const topOff = maskImg.top;
+
+    return corners.map(c => ({
+        x: (c.left - leftOff) / scaleX,
+        y: (c.top - topOff) / scaleY
+    }));
+};
+
+// ==========================================
+// RESIZING & BOUNDARY MATH
+// ==========================================
 
 window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modalContentEl, corners, renderPolyCallback) {
     if (!fabricImg) return;
@@ -226,6 +316,14 @@ function isConvex(pts) {
     }
     return pos === 4 || neg === 4; 
 }
+
+window.enforcePolygonBoundsWithinMask = function(target, corners, maskImage) {
+    const minBoundX = maskImage.left;
+    const minBoundY = maskImage.top;
+    const maxBoundX = minBoundX + maskImage.getScaledWidth();
+    const maxBoundY = minBoundY + maskImage.getScaledHeight();
+    window.enforcePolygonBounds(target, corners, minBoundX, minBoundY, maxBoundX, maxBoundY);
+};
 
 window.enforcePolygonBounds = function(target, corners, minBoundX, minBoundY, maxBoundX, maxBoundY) {
     if (target._lastValidX === undefined) {

@@ -26,42 +26,31 @@ document.getElementById('btn-cancel-change-wall').addEventListener('click', () =
 
 document.getElementById('file-wall').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
-    window.processImageFile(e.target.files[0], (webpUrl) => {
-        fabric.Image.fromURL(webpUrl, (img) => {
-            if (!img || !img.width) return alert("Failed to load image. Please ensure you are using a standard format.");
-            AppState.isRedefiningWall = false;
-            AppState.rawWallImg = img;
-            openWallModalWithImage(img);
-        });
+    window.loadFabricImageFromFile(e.target.files[0], (img) => {
+        AppState.isRedefiningWall = false;
+        AppState.rawWallImg = img;
+        openWallModalWithImage(img);
     });
     e.target.value = '';
 });
 
 document.getElementById('btn-rotate-wall').addEventListener('click', () => {
-    if (!AppState.rawWallImg || !AppState.wallMaskImage) return;
-    
-    const forcedPolygon = window.calculateRotatedPolygon(AppState.wallCorners, AppState.wallMaskImage);
-    
-    window.rotateImageElement(AppState.rawWallImg.getElement(), (webpUrl) => {
-        fabric.Image.fromURL(webpUrl, (fImg) => {
-            AppState.rawWallImg = fImg;
-            
-            wallScaleCanvas.clear();
-            AppState.wallMaskImage = null;
+    window.handleEditorRotation({
+        rawImg: AppState.rawWallImg,
+        maskImg: AppState.wallMaskImage,
+        corners: AppState.wallCorners,
+        canvas: wallScaleCanvas,
+        canvasContainer: wallScaleCanvasContainer,
+        modalContent: document.querySelector('#wall-modal .modal-content'),
+        wInputId: 'input-wall-w',
+        hInputId: 'input-wall-h',
+        onComplete: (webpUrl, newRawImg, newMaskImg, forcedPolygon) => {
+            AppState.rawWallImg = newRawImg;
+            AppState.wallMaskImage = newMaskImg;
             AppState.wallPoly = null;
             AppState.wallCorners = [];
-            
-            AppState.wallMaskImage = window.setupModalCanvasImage(
-                wallScaleCanvas, 
-                wallScaleCanvasContainer, 
-                fImg, 
-                document.querySelector('#wall-modal .modal-content'),
-                false 
-            );
-            
             startWallPerspectiveMode(false, forcedPolygon);
-            window.swapDimensions('input-wall-w', 'input-wall-h');
-        });
+        }
     });
 });
 
@@ -105,48 +94,21 @@ function openWallModalWithImage(img) {
 
 function startWallPerspectiveMode(ignoreSavedPolygon = false, forcedPolygon = null) {
     AppState.mode = 'WALL_SCALE';
-    const imgL = AppState.wallMaskImage.left;
-    const imgT = AppState.wallMaskImage.top;
-    const imgW = AppState.wallMaskImage.getScaledWidth();
-    const imgH = AppState.wallMaskImage.getScaledHeight();
 
-    let points;
-    if (forcedPolygon) {
-        points = forcedPolygon.map(p => ({
-            x: imgL + (p.x * AppState.wallMaskImage.scaleX),
-            y: imgT + (p.y * AppState.wallMaskImage.scaleY)
-        }));
-        if (AppState.isRedefiningWall) {
-            AppState.savedWallPolygon = forcedPolygon; 
-        }
-    } else if (AppState.isRedefiningWall && AppState.savedWallPolygon && !ignoreSavedPolygon) {
-        points = AppState.savedWallPolygon.map(p => ({
-            x: imgL + (p.x * AppState.wallMaskImage.scaleX),
-            y: imgT + (p.y * AppState.wallMaskImage.scaleY)
-        }));
-    } else {
-        const padX = imgW * 0.1;
-        const padY = imgH * 0.1;
-        points = [
-            { x: imgL + padX, y: imgT + padY }, 
-            { x: imgL + imgW - padX, y: imgT + padY }, 
-            { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
-            { x: imgL + padX, y: imgT + imgH - padY } 
-        ];
+    AppState.wallCorners = window.buildPerspectiveCorners({
+        maskImg: AppState.wallMaskImage,
+        forcedPolygon: forcedPolygon,
+        isEditing: AppState.isRedefiningWall,
+        savedPolygon: AppState.savedWallPolygon,
+        ignoreSavedPolygon: ignoreSavedPolygon,
+        color: window.getThemeColor('primary'),
+        canvas: wallScaleCanvas
+    });
+
+    if (forcedPolygon && AppState.isRedefiningWall) {
+        AppState.savedWallPolygon = forcedPolygon; 
     }
 
-    AppState.wallCorners = points.map((p, index) => {
-        const circle = new fabric.Circle({
-            radius: 12, fill: '#ffffff', stroke: window.getThemeColor('primary'), strokeWidth: 4,
-            left: p.x, top: p.y, originX: 'center', originY: 'center',
-            hasBorders: false, hasControls: false, customIndex: index
-        });
-        circle.isWallCorner = true;
-        circle._lastValidX = p.x;
-        circle._lastValidY = p.y;
-        wallScaleCanvas.add(circle);
-        return circle;
-    });
     renderWallPoly(); 
 }
 
@@ -168,15 +130,12 @@ function renderWallPoly() {
     AppState.wallCorners.forEach(c => c.bringToFront());
 }
 
+// Ensure explicit background re-render during drag
 wallScaleCanvas.on('object:moving', (e) => {
-    if (AppState.mode === 'WALL_SCALE' && e.target.type === 'circle' && e.target.customIndex !== undefined) {
-        const minBoundX = AppState.wallMaskImage.left;
-        const minBoundY = AppState.wallMaskImage.top;
-        const maxBoundX = minBoundX + AppState.wallMaskImage.getScaledWidth();
-        const maxBoundY = minBoundY + AppState.wallMaskImage.getScaledHeight();
-
-        window.enforcePolygonBounds(e.target, AppState.wallCorners, minBoundX, minBoundY, maxBoundX, maxBoundY);
+    if (AppState.mode === 'WALL_SCALE' && e.target && e.target.isCorner) {
+        window.enforcePolygonBoundsWithinMask(e.target, AppState.wallCorners, AppState.wallMaskImage);
         renderWallPoly();
+        wallScaleCanvas.requestRenderAll();
     }
 });
 
@@ -190,16 +149,7 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     
     AppState.pixelsPerInch = 15; 
     
-    const scaleX = AppState.wallMaskImage.scaleX;
-    const scaleY = AppState.wallMaskImage.scaleY;
-    const leftOff = AppState.wallMaskImage.left;
-    const topOff = AppState.wallMaskImage.top;
-
-    const absolutePoints = AppState.wallCorners.map(c => ({
-        x: (c.left - leftOff) / scaleX,
-        y: (c.top - topOff) / scaleY
-    }));
-
+    const absolutePoints = window.getRelativePolygon(AppState.wallCorners, AppState.wallMaskImage);
     AppState.savedWallPolygon = absolutePoints.map(p => ({ x: p.x, y: p.y }));
     AppState.savedWallDimensions = { w: inchesW, h: inchesH };
 
@@ -218,12 +168,9 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     const maxScaleX = maxAllowedW / cropW;
     const maxScaleY = maxAllowedH / cropH;
 
-    const virtualWallPolygonScale = 2;
-    const appliedScale = Math.min(virtualWallPolygonScale, maxScaleX, maxScaleY);
-
+    const appliedScale = Math.min(2, maxScaleX, maxScaleY);
     const coreW = Math.round(inchesW * AppState.pixelsPerInch);
     const coreH = Math.round(inchesH * AppState.pixelsPerInch);
-    
     const expW = Math.round(coreW * appliedScale);
     const expH = Math.round(coreH * appliedScale);
     const offsetX = (expW - coreW) / 2;
@@ -239,8 +186,7 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = AppState.rawWallImg.width;
     tempCanvas.height = AppState.rawWallImg.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(AppState.rawWallImg.getElement(), 0, 0);
+    tempCanvas.getContext('2d').drawImage(AppState.rawWallImg.getElement(), 0, 0);
 
     const finalCanvas = window.extractPerspective(tempCanvas, expW, expH, absolutePoints, coreW, coreH, offsetX, offsetY, true);
 
@@ -249,12 +195,7 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             AppState.logicalWidth = expW;
             AppState.logicalHeight = expH;
             
-            img.set({
-                scaleX: expW / img.width,
-                scaleY: expH / img.height,
-                originX: 'left',
-                originY: 'top'
-            });
+            img.set({ scaleX: expW / img.width, scaleY: expH / img.height, originX: 'left', originY: 'top' });
             
             canvas.clear(); 
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
@@ -265,7 +206,6 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             document.getElementById('zoom-controls').style.display = 'flex';
             
             window.resizeCanvas();
-            
             document.getElementById('btn-art').disabled = false;
             document.getElementById('btn-wall').textContent = "Change Wall";
             
@@ -276,8 +216,7 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
 });
 
 function closeWallModal() {
-    wallModal.style.display = 'none';
-    wallScaleCanvas.clear();
+    window.closeEditorModal('wall-modal', wallScaleCanvas);
     AppState.wallMaskImage = null;
     AppState.wallPoly = null;
     AppState.wallCorners = [];

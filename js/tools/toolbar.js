@@ -83,22 +83,6 @@ window.showContextMenu = function(e, type, target) {
     ctxMenu.style.top = top + 'px';
 };
 
-canvas.on('mouse:down', function(options) {
-    if (options.e.button === 2 || options.e.button === 3) { 
-        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE' && options.target.customData?.trayId) {
-            const active = canvas.getActiveObject();
-            if (!active || (active.type === 'activeSelection' && !active.contains(options.target)) || active !== options.target) {
-                canvas.setActiveObject(options.target);
-            }
-            window.showContextMenu(options.e, 'wall-art', options.target);
-        } else {
-            window.hideContextMenu();
-        }
-    } else {
-        window.hideContextMenu();
-    }
-});
-
 document.getElementById('tray').addEventListener('contextmenu', (e) => {
     if (e.target.classList.contains('tray-item')) {
         window.showContextMenu(e, 'tray-art', e.target);

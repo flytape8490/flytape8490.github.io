@@ -50,7 +50,6 @@ window.drawRulers = function() {
         hCtx.stroke();
     }
     
-    // Draw Horizontal Indicators
     if (AppState.dragBounds) {
         hCtx.fillStyle = window.getThemeColor('primaryFill');
         const x1 = (AppState.dragBounds.left * zoom) - scrollX;
@@ -106,7 +105,6 @@ window.drawRulers = function() {
         vCtx.stroke();
     }
 
-    // Draw Vertical Indicators
     if (AppState.dragBounds) {
         vCtx.fillStyle = window.getThemeColor('primaryFill');
         const y1 = (AppState.dragBounds.top * zoom) + vOffset - scrollY;
@@ -189,24 +187,3 @@ window.startDragGuide = function(e, type) {
 
 document.getElementById('ruler-h').addEventListener('mousedown', (e) => window.startDragGuide(e, 'h'));
 document.getElementById('ruler-v').addEventListener('mousedown', (e) => window.startDragGuide(e, 'v'));
-
-// Ensure Rulers and FabricJS pointers remain accurate during container scroll
-document.getElementById('canvas-container').addEventListener('scroll', () => {
-    canvas.calcOffset();
-    if (window.drawRulers) window.drawRulers();
-});
-
-canvas.on('mouse:up', (e) => {
-    AppState.dragBounds = null;
-    if (window.drawRulers) window.drawRulers();
-    
-    if (e.target && e.target.isGuide) {
-        const bounds = AppState.coreWallBounds || {left:0, top:0};
-        if ((e.target.lockMovementX && e.target.top < bounds.top) || 
-            (e.target.lockMovementY && e.target.left < bounds.left)) {
-            canvas.remove(e.target);
-            canvas.discardActiveObject();
-            canvas.requestRenderAll();
-        }
-    }
-});

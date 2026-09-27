@@ -39,7 +39,6 @@ window.extractPerspective = function(srcCanvas, dstW, dstH, P, coreW, coreH, off
     let dstIdx = 0;
     for (let y = 0; y < dstH; y++) {
         for (let x = 0; x < dstW; x++) {
-            
             const u = (x - offsetX) / coreW;
             const v = (y - offsetY) / coreH;
 
@@ -83,4 +82,76 @@ window.extractPerspective = function(srcCanvas, dstW, dstH, P, coreW, coreH, off
     
     outCtx.putImageData(dstData, 0, 0);
     return outCanvas;
+};
+
+window.applyGridSnap = function(value, axis) {
+    if (!document.getElementById('toggle-grid').checked || !AppState.pixelsPerInch) return value;
+    const rawVal = parseFloat(document.getElementById('input-snap-val').value);
+    const snapVal = (!isNaN(rawVal) && rawVal > 0) ? rawVal : 1;
+    const gridSize = AppState.pixelsPerInch * snapVal;
+    
+    let offset = 0;
+    if (AppState.coreWallBounds) {
+        offset = axis === 'x' ? AppState.coreWallBounds.left : AppState.coreWallBounds.top;
+    }
+    
+    return Math.round((value - offset) / gridSize) * gridSize + offset;
+};
+
+window.calculateGuideSnapping = function(vL, vT, vW, vH, targetX, targetY, zoom, objects) {
+    const guidesX = [];
+    const guidesY = [];
+    objects.forEach(obj => {
+        if (obj.isGuide) {
+            if (obj.lockMovementY) guidesX.push(obj.left);
+            if (obj.lockMovementX) guidesY.push(obj.top);
+        }
+    });
+
+    const vCenterX = vL + vW / 2;
+    const vCenterY = vT + vH / 2;
+    const vR = vL + vW;
+    const vB = vT + vH;
+    const SNAP_THRESHOLD = 15 / zoom;
+
+    let snapX = null;
+    let minDiffX = SNAP_THRESHOLD;
+    guidesX.forEach(gx => {
+        const dL = Math.abs(vL - gx);
+        const dC = Math.abs(vCenterX - gx);
+        const dR = Math.abs(vR - gx);
+        if (dL < minDiffX) { minDiffX = dL; snapX = targetX + (gx - vL); }
+        if (dC < minDiffX) { minDiffX = dC; snapX = targetX + (gx - vCenterX); }
+        if (dR < minDiffX) { minDiffX = dR; snapX = targetX + (gx - vR); }
+    });
+
+    let snapY = null;
+    let minDiffY = SNAP_THRESHOLD;
+    guidesY.forEach(gy => {
+        const dT = Math.abs(vT - gy);
+        const dC = Math.abs(vCenterY - gy);
+        const dB = Math.abs(vB - gy);
+        if (dT < minDiffY) { minDiffY = dT; snapY = targetY + (gy - vT); }
+        if (dC < minDiffY) { minDiffY = dC; snapY = targetY + (gy - vCenterY); }
+        if (dB < minDiffY) { minDiffY = dB; snapY = targetY + (gy - vB); }
+    });
+
+    return { x: snapX, y: snapY };
+};
+
+window.constrainToBounds = function(targetX, targetY, vL, vT, vW, vH, bounds) {
+    const offsetLeft = targetX - vL;
+    const offsetRight = (vL + vW) - targetX;
+    const offsetTop = targetY - vT;
+    const offsetBottom = (vT + vH) - targetY;
+
+    let newLeft = targetX;
+    let newTop = targetY;
+
+    if (newLeft - offsetLeft < bounds.left) newLeft = bounds.left + offsetLeft;
+    if (newLeft + offsetRight > bounds.right) newLeft = bounds.right - offsetRight;
+    if (newTop - offsetTop < bounds.top) newTop = bounds.top + offsetTop;
+    if (newTop + offsetBottom > bounds.bottom) newTop = bounds.bottom - offsetBottom;
+
+    return { x: newLeft, y: newTop };
 };

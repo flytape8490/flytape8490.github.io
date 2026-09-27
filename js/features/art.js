@@ -1,22 +1,19 @@
 document.getElementById('btn-art').addEventListener('click', () => document.getElementById('file-art').click());
 document.getElementById('file-art').addEventListener('change', (e) => {
     if (!e.target.files[0]) return;
-    window.processImageFile(e.target.files[0], (webpUrl) => {
+    window.loadFabricImageFromFile(e.target.files[0], (img, webpUrl) => {
         AppState.editingTrayId = null;
         AppState.workingArtSrc = webpUrl;
-        fabric.Image.fromURL(webpUrl, (img) => {
-            if (!img || !img.width) return alert("Failed to load image. Please ensure you are using a standard format.");
-            artModal.style.display = 'flex';
-            AppState.artMaskImage = window.setupModalCanvasImage(
-                artCanvas, 
-                artCanvasContainer, 
-                img, 
-                document.querySelector('#art-modal .modal-content'),
-                true
-            );
-            setupArtPerspectiveMode();
-            document.getElementById('input-art-w').focus();
-        });
+        artModal.style.display = 'flex';
+        AppState.artMaskImage = window.setupModalCanvasImage(
+            artCanvas, 
+            artCanvasContainer, 
+            img, 
+            document.querySelector('#art-modal .modal-content'),
+            true
+        );
+        setupArtPerspectiveMode();
+        document.getElementById('input-art-w').focus();
     });
     e.target.value = ''; 
 });
@@ -49,40 +46,29 @@ window.openArtUpdate = function(trayId) {
 };
 
 document.getElementById('btn-rotate-art').addEventListener('click', () => {
-    if (!AppState.workingArtSrc || !AppState.artMaskImage) return;
-    
-    const forcedPolygon = window.calculateRotatedPolygon(AppState.artCorners, AppState.artMaskImage);
-    
-    const img = new Image();
-    img.onload = () => {
-        window.rotateImageElement(img, (webpUrl) => {
+    window.handleEditorRotation({
+        rawImg: AppState.workingArtSrc,
+        maskImg: AppState.artMaskImage,
+        corners: AppState.artCorners,
+        canvas: artCanvas,
+        canvasContainer: artCanvasContainer,
+        modalContent: document.querySelector('#art-modal .modal-content'),
+        wInputId: 'input-art-w',
+        hInputId: 'input-art-h',
+        onComplete: (webpUrl, newRawImg, newMaskImg, forcedPolygon) => {
             AppState.workingArtSrc = webpUrl;
-            AppState.artCorners.forEach(corner => artCanvas.remove(corner));
+            AppState.artMaskImage = newMaskImg;
+            AppState.artPoly = null;
+            AppState.artOvalStrokeBg = null;
+            AppState.artOvalFill = null;
             AppState.artCorners = [];
-            if (AppState.artPoly) artCanvas.remove(AppState.artPoly);
-            if (AppState.artOvalStrokeBg) artCanvas.remove(AppState.artOvalStrokeBg);
-            if (AppState.artOvalFill) artCanvas.remove(AppState.artOvalFill);
-            if (AppState.artMaskImage) artCanvas.remove(AppState.artMaskImage);
-
+            
             const tempId = AppState.editingTrayId;
-            AppState.editingTrayId = null;
-
-            fabric.Image.fromURL(AppState.workingArtSrc, (fImg) => {
-                AppState.artMaskImage = window.setupModalCanvasImage(
-                    artCanvas, 
-                    artCanvasContainer, 
-                    fImg, 
-                    document.querySelector('#art-modal .modal-content'),
-                    false 
-                );
-                
-                AppState.editingTrayId = tempId;
-                setupArtPerspectiveMode(false, forcedPolygon);
-                window.swapDimensions('input-art-w', 'input-art-h');
-            });
-        });
-    };
-    img.src = AppState.workingArtSrc;
+            AppState.editingTrayId = null; 
+            setupArtPerspectiveMode(false, forcedPolygon);
+            AppState.editingTrayId = tempId;
+        }
+    });
 });
 
 window.addEventListener('resize', () => {
@@ -108,48 +94,23 @@ function setupArtPerspectiveMode(ignoreSavedPolygon = false, forcedPolygon = nul
     }
     updateArtShapeUI();
 
-    const imgL = AppState.artMaskImage.left;
-    const imgT = AppState.artMaskImage.top;
-    const imgW = AppState.artMaskImage.getScaledWidth();
-    const imgH = AppState.artMaskImage.getScaledHeight();
+    const savedP = (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) 
+        ? AppState.trayItems[AppState.editingTrayId].polygonP 
+        : null;
 
-    let points;
-    if (forcedPolygon) {
-        points = forcedPolygon.map(p => ({
-            x: imgL + (p.x * AppState.artMaskImage.scaleX),
-            y: imgT + (p.y * AppState.artMaskImage.scaleY)
-        }));
-        if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
-            AppState.trayItems[AppState.editingTrayId].polygonP = forcedPolygon;
-        }
-    } else if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
-        points = AppState.trayItems[AppState.editingTrayId].polygonP.map(p => ({
-            x: imgL + (p.x * AppState.artMaskImage.scaleX),
-            y: imgT + (p.y * AppState.artMaskImage.scaleY)
-        }));
-    } else {
-        const padX = imgW * 0.1;
-        const padY = imgH * 0.1;
-        points = [
-            { x: imgL + padX, y: imgT + padY }, 
-            { x: imgL + imgW - padX, y: imgT + padY }, 
-            { x: imgL + imgW - padX, y: imgT + imgH - padY }, 
-            { x: imgL + padX, y: imgT + imgH - padY } 
-        ];
-    }
-
-    AppState.artCorners = points.map((p, index) => {
-        const circle = new fabric.Circle({
-            radius: 12, fill: '#ffffff', stroke: window.getThemeColor('success'), strokeWidth: 4,
-            left: p.x, top: p.y, originX: 'center', originY: 'center',
-            hasBorders: false, hasControls: false, customIndex: index
-        });
-        circle.isArtCorner = true;
-        circle._lastValidX = p.x;
-        circle._lastValidY = p.y;
-        artCanvas.add(circle);
-        return circle;
+    AppState.artCorners = window.buildPerspectiveCorners({
+        maskImg: AppState.artMaskImage,
+        forcedPolygon: forcedPolygon,
+        isEditing: !!AppState.editingTrayId,
+        savedPolygon: savedP,
+        ignoreSavedPolygon: ignoreSavedPolygon,
+        color: window.getThemeColor('success'),
+        canvas: artCanvas
     });
+
+    if (forcedPolygon && AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
+        AppState.trayItems[AppState.editingTrayId].polygonP = forcedPolygon;
+    }
 
     renderArtPoly(); 
     
@@ -188,23 +149,7 @@ function renderArtPoly() {
         });
         AppState.artPoly.isArtPoly = true;
         
-        const p0 = pts[0], p1 = pts[1], p2 = pts[2], p3 = pts[3];
-        const m0 = { x: (p0.x+p1.x)/2, y: (p0.y+p1.y)/2 };
-        const m1 = { x: (p1.x+p2.x)/2, y: (p1.y+p2.y)/2 };
-        const m2 = { x: (p2.x+p3.x)/2, y: (p2.y+p3.y)/2 };
-        const m3 = { x: (p3.x+p0.x)/2, y: (p3.y+p0.y)/2 };
-        const k = 0.27614237491; 
-
-        const cp1 = { x: m0.x + (p1.x-p0.x)*k, y: m0.y + (p1.y-p0.y)*k };
-        const cp2 = { x: m1.x + (p1.x-p2.x)*k, y: m1.y + (p1.y-p2.y)*k };
-        const cp3 = { x: m1.x + (p2.x-p1.x)*k, y: m1.y + (p2.y-p1.y)*k };
-        const cp4 = { x: m2.x + (p2.x-p3.x)*k, y: m2.y + (p2.y-p3.y)*k };
-        const cp5 = { x: m2.x + (p3.x-p2.x)*k, y: m2.y + (p3.y-p2.y)*k };
-        const cp6 = { x: m3.x + (p3.x-p0.x)*k, y: m3.y + (p3.y-p0.y)*k };
-        const cp7 = { x: m3.x + (p0.x-p3.x)*k, y: m3.y + (p0.y-p3.y)*k };
-        const cp8 = { x: m0.x + (p0.x-p1.x)*k, y: m0.y + (p0.y-p1.y)*k };
-
-        const pathStr = `M ${m0.x} ${m0.y} C ${cp1.x} ${cp1.y} ${cp2.x} ${cp2.y} ${m1.x} ${m1.y} C ${cp3.x} ${cp3.y} ${cp4.x} ${cp4.y} ${m2.x} ${m2.y} C ${cp5.x} ${cp5.y} ${cp6.x} ${cp6.y} ${m3.x} ${m3.y} C ${cp7.x} ${cp7.y} ${cp8.x} ${cp8.y} ${m0.x} ${m0.y} Z`;
+        const pathStr = window.getOvalPathString(pts);
 
         AppState.artOvalStrokeBg = new fabric.Path(pathStr, {
             fill: successFill, stroke: '#ffffff', strokeWidth: 2,
@@ -231,14 +176,12 @@ function renderArtPoly() {
     AppState.artCorners.forEach(c => c.bringToFront());
 }
 
+// Ensure explicit background re-render during drag
 artCanvas.on('object:moving', (e) => {
-    if (e.target.type === 'circle' && e.target.customIndex !== undefined) {
-        const minBoundX = AppState.artMaskImage.left;
-        const minBoundY = AppState.artMaskImage.top;
-        const maxBoundX = minBoundX + AppState.artMaskImage.getScaledWidth();
-        const maxBoundY = minBoundY + AppState.artMaskImage.getScaledHeight();
-        window.enforcePolygonBounds(e.target, AppState.artCorners, minBoundX, minBoundY, maxBoundX, maxBoundY);
+    if (e.target && e.target.isCorner) {
+        window.enforcePolygonBoundsWithinMask(e.target, AppState.artCorners, AppState.artMaskImage);
         renderArtPoly();
+        artCanvas.requestRenderAll();
     }
 });
 
@@ -278,17 +221,8 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
             return alert("Please enter valid physical dimensions (1 inch or greater).");
         }
     }
-    
-    const scaleX = AppState.artMaskImage.scaleX;
-    const scaleY = AppState.artMaskImage.scaleY;
-    const leftOff = AppState.artMaskImage.left;
-    const topOff = AppState.artMaskImage.top;
 
-    const P = AppState.artCorners.map(c => ({
-        x: (c.left - leftOff) / scaleX,
-        y: (c.top - topOff) / scaleY
-    }));
-
+    const P = window.getRelativePolygon(AppState.artCorners, AppState.artMaskImage);
     const extractPPI = 30;
     const dstW = Math.round(physicalW * extractPPI);
     const dstH = Math.round(physicalH * extractPPI);
@@ -296,8 +230,7 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
     const rawCanvas = document.createElement('canvas');
     rawCanvas.width = AppState.artMaskImage.width;
     rawCanvas.height = AppState.artMaskImage.height;
-    const rawCtx = rawCanvas.getContext('2d');
-    rawCtx.drawImage(AppState.artMaskImage.getElement(), 0, 0);
+    rawCanvas.getContext('2d').drawImage(AppState.artMaskImage.getElement(), 0, 0);
 
     const flatCanvas = window.extractPerspective(rawCanvas, dstW, dstH, P, dstW, dstH, 0, 0, false);
 
@@ -359,9 +292,7 @@ document.getElementById('btn-save-art').addEventListener('click', () => {
 document.getElementById('btn-cancel-art').addEventListener('click', closeArtModal);
 
 function closeArtModal() {
-    artModal.style.display = 'none';
-    artCanvas.clear();
-    
+    window.closeEditorModal('art-modal', artCanvas);
     AppState.artMaskImage = null; 
     AppState.artPoly = null;
     AppState.artOvalStrokeBg = null;

@@ -89,79 +89,26 @@ canvas.on('object:moving', (e) => {
 
     target.setCoords();
     const zoom = canvas.getZoom();
-    const guidesX = [];
-    const guidesY = [];
-    canvas.getObjects().forEach(obj => {
-        if (obj.isGuide && obj !== target) {
-            if (obj.lockMovementY) guidesX.push(obj.left); 
-            if (obj.lockMovementX) guidesY.push(obj.top);  
-        }
-    });
+    const bRect = target.getBoundingRect();
+    const vW = bRect.width / zoom;
+    const vH = bRect.height / zoom;
+    const vL = bRect.left / zoom;
+    const vT = bRect.top / zoom;
 
-    if (guidesX.length > 0 || guidesY.length > 0) {
-        const bRect = target.getBoundingRect();
-        const vW = bRect.width / zoom;
-        const vH = bRect.height / zoom;
-        const vL = bRect.left / zoom;
-        const vT = bRect.top / zoom;
-        const vCenterX = vL + vW / 2;
-        const vCenterY = vT + vH / 2;
-        const vR = vL + vW;
-        const vB = vT + vH;
-
-        const SNAP_THRESHOLD = 15 / zoom;
-
-        let snapX = null;
-        let minDiffX = SNAP_THRESHOLD;
-        guidesX.forEach(gx => {
-            const dL = Math.abs(vL - gx);
-            const dC = Math.abs(vCenterX - gx);
-            const dR = Math.abs(vR - gx);
-            if (dL < minDiffX) { minDiffX = dL; snapX = target.left + (gx - vL); }
-            if (dC < minDiffX) { minDiffX = dC; snapX = target.left + (gx - vCenterX); }
-            if (dR < minDiffX) { minDiffX = dR; snapX = target.left + (gx - vR); }
-        });
-
-        let snapY = null;
-        let minDiffY = SNAP_THRESHOLD;
-        guidesY.forEach(gy => {
-            const dT = Math.abs(vT - gy);
-            const dC = Math.abs(vCenterY - gy);
-            const dB = Math.abs(vB - gy);
-            if (dT < minDiffY) { minDiffY = dT; snapY = target.top + (gy - vT); }
-            if (dC < minDiffY) { minDiffY = dC; snapY = target.top + (gy - vCenterY); }
-            if (dB < minDiffY) { minDiffY = dB; snapY = target.top + (gy - vB); }
-        });
-
-        if (snapX !== null) target.set('left', snapX);
-        if (snapY !== null) target.set('top', snapY);
-        target.setCoords();
-    }
+    const snap = window.calculateGuideSnapping(vL, vT, vW, vH, target.left, target.top, zoom, canvas.getObjects());
+    if (snap.x !== null) target.set('left', snap.x);
+    if (snap.y !== null) target.set('top', snap.y);
 
     if (AppState.coreWallBounds) {
-        const b = AppState.coreWallBounds;
-        const bRect = target.getBoundingRect();
-        const vW = bRect.width / zoom;
-        const vH = bRect.height / zoom;
-        const vL = bRect.left / zoom;
-        const vT = bRect.top / zoom;
-
-        const offsetLeft = target.left - vL;
-        const offsetRight = (vL + vW) - target.left;
-        const offsetTop = target.top - vT;
-        const offsetBottom = (vT + vH) - target.top;
-
-        let newLeft = target.left;
-        let newTop = target.top;
-
-        if (newLeft - offsetLeft < b.left) newLeft = b.left + offsetLeft;
-        if (newLeft + offsetRight > b.right) newLeft = b.right - offsetRight;
-        if (newTop - offsetTop < b.top) newTop = b.top + offsetTop;
-        if (newTop + offsetBottom > b.bottom) newTop = b.bottom - offsetBottom;
-
-        target.set({ left: newLeft, top: newTop });
-        target.setCoords();
+        const constrained = window.constrainToBounds(
+            target.left, target.top, 
+            vL, vT, vW, vH, 
+            AppState.coreWallBounds
+        );
+        target.set({ left: constrained.x, top: constrained.y });
     }
+    
+    target.setCoords();
     
     const finalRect = target.getBoundingRect();
     AppState.dragBounds = {
@@ -172,4 +119,40 @@ canvas.on('object:moving', (e) => {
     };
 
     if (window.drawRulers) window.drawRulers();
+});
+
+document.getElementById('canvas-container').addEventListener('scroll', () => {
+    canvas.calcOffset();
+    if (window.drawRulers) window.drawRulers();
+});
+
+canvas.on('mouse:up', (e) => {
+    AppState.dragBounds = null;
+    if (window.drawRulers) window.drawRulers();
+    
+    if (e.target && e.target.isGuide) {
+        const bounds = AppState.coreWallBounds || {left:0, top:0};
+        if ((e.target.lockMovementX && e.target.top < bounds.top) || 
+            (e.target.lockMovementY && e.target.left < bounds.left)) {
+            canvas.remove(e.target);
+            canvas.discardActiveObject();
+            canvas.requestRenderAll();
+        }
+    }
+});
+
+canvas.on('mouse:down', function(options) {
+    if (options.e.button === 2 || options.e.button === 3) { 
+        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE' && options.target.customData?.trayId) {
+            const active = canvas.getActiveObject();
+            if (!active || (active.type === 'activeSelection' && !active.contains(options.target)) || active !== options.target) {
+                canvas.setActiveObject(options.target);
+            }
+            window.showContextMenu(options.e, 'wall-art', options.target);
+        } else {
+            window.hideContextMenu();
+        }
+    } else {
+        window.hideContextMenu();
+    }
 });

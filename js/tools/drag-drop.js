@@ -9,56 +9,22 @@ function calculateDropPosition(clientX, clientY, pW, pH) {
     pointerX = window.applyGridSnap(pointerX, 'x');
     pointerY = window.applyGridSnap(pointerY, 'y');
 
-    const guidesX = [];
-    const guidesY = [];
-    canvas.getObjects().forEach(obj => {
-        if (obj.isGuide) {
-            if (obj.lockMovementY) guidesX.push(obj.left);
-            if (obj.lockMovementX) guidesY.push(obj.top);
-        }
-    });
+    const vL = pointerX - pW / 2;
+    const vT = pointerY - pH / 2;
 
-    if (guidesX.length > 0 || guidesY.length > 0) {
-        const vL = pointerX - pW / 2;
-        const vT = pointerY - pH / 2;
-        const vR = pointerX + pW / 2;
-        const vB = pointerY + pH / 2;
-        const SNAP_THRESHOLD = 15 / zoom;
-
-        let snapX = null;
-        let minDiffX = SNAP_THRESHOLD;
-        guidesX.forEach(gx => {
-            const dL = Math.abs(vL - gx);
-            const dC = Math.abs(pointerX - gx);
-            const dR = Math.abs(vR - gx);
-            if (dL < minDiffX) { minDiffX = dL; snapX = pointerX + (gx - vL); }
-            if (dC < minDiffX) { minDiffX = dC; snapX = pointerX + (gx - pointerX); }
-            if (dR < minDiffX) { minDiffX = dR; snapX = pointerX + (gx - vR); }
-        });
-
-        let snapY = null;
-        let minDiffY = SNAP_THRESHOLD;
-        guidesY.forEach(gy => {
-            const dT = Math.abs(vT - gy);
-            const dC = Math.abs(pointerY - gy);
-            const dB = Math.abs(vB - gy);
-            if (dT < minDiffY) { minDiffY = dT; snapY = pointerY + (gy - vT); }
-            if (dC < minDiffY) { minDiffY = dC; snapY = pointerY + (gy - pointerY); }
-            if (dB < minDiffY) { minDiffY = dB; snapY = pointerY + (gy - vB); }
-        });
-
-        if (snapX !== null) pointerX = snapX;
-        if (snapY !== null) pointerY = snapY;
-    }
+    const snap = window.calculateGuideSnapping(vL, vT, pW, pH, pointerX, pointerY, zoom, canvas.getObjects());
+    if (snap.x !== null) pointerX = snap.x;
+    if (snap.y !== null) pointerY = snap.y;
 
     if (AppState.coreWallBounds) {
-        const b = AppState.coreWallBounds;
-        const w2 = pW / 2;
-        const h2 = pH / 2;
-        if (pointerX - w2 < b.left) pointerX = b.left + w2;
-        if (pointerX + w2 > b.right) pointerX = b.right - w2;
-        if (pointerY - h2 < b.top) pointerY = b.top + h2;
-        if (pointerY + h2 > b.bottom) pointerY = b.bottom - h2;
+        const constrained = window.constrainToBounds(
+            pointerX, pointerY,
+            pointerX - pW / 2, pointerY - pH / 2,
+            pW, pH,
+            AppState.coreWallBounds
+        );
+        pointerX = constrained.x;
+        pointerY = constrained.y;
     }
 
     return { x: pointerX, y: pointerY };
