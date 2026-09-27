@@ -49,6 +49,22 @@ document.getElementById('btn-zoom-reset').addEventListener('click', () => {
     window.resizeCanvas();
 });
 
+canvas.on('mouse:down', function(options) {
+    if (options.e.button === 2 || options.e.button === 3) { 
+        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE' && options.target.customData?.trayId) {
+            const active = canvas.getActiveObject();
+            if (!active || (active.type === 'activeSelection' && !active.contains(options.target)) || active !== options.target) {
+                canvas.setActiveObject(options.target);
+            }
+            window.showContextMenu(options.e, 'wall-art', options.target);
+        } else {
+            window.hideContextMenu();
+        }
+    } else {
+        window.hideContextMenu();
+    }
+});
+
 canvas.on('mouse:move', (e) => {
     if (AppState.mode !== 'IDLE') return;
     const pointer = canvas.getPointer(e.e);
@@ -141,18 +157,16 @@ canvas.on('mouse:up', (e) => {
     }
 });
 
-canvas.on('mouse:down', function(options) {
-    if (options.e.button === 2 || options.e.button === 3) { 
-        if (options.target && !options.target.isGuide && AppState.mode === 'IDLE' && options.target.customData?.trayId) {
-            const active = canvas.getActiveObject();
-            if (!active || (active.type === 'activeSelection' && !active.contains(options.target)) || active !== options.target) {
-                canvas.setActiveObject(options.target);
-            }
-            window.showContextMenu(options.e, 'wall-art', options.target);
-        } else {
-            window.hideContextMenu();
-        }
-    } else {
-        window.hideContextMenu();
-    }
-});
+// Setup Zoom functionality for the editor modals
+if (window.setupEditorZoomAndPan) {
+    window.setupEditorZoomAndPan(artCanvas, {
+        zoomIn: 'btn-art-zoom-in',
+        zoomOut: 'btn-art-zoom-out',
+        zoomReset: 'btn-art-zoom-reset'
+    }, 'art-canvas-container');
+    window.setupEditorZoomAndPan(wallScaleCanvas, {
+        zoomIn: 'btn-wall-zoom-in',
+        zoomOut: 'btn-wall-zoom-out',
+        zoomReset: 'btn-wall-zoom-reset'
+    }, 'wall-scale-canvas-container');
+}

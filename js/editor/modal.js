@@ -8,6 +8,54 @@ window.swapDimensions = function(wId, hId) {
     }
 };
 
+window.setupEditorZoomAndPan = function(canvas, controlsConfig, containerId) {
+    const containerEl = document.getElementById(containerId);
+
+    if (controlsConfig) {
+        const btnIn = document.getElementById(controlsConfig.zoomIn);
+        const btnOut = document.getElementById(controlsConfig.zoomOut);
+        const btnReset = document.getElementById(controlsConfig.zoomReset);
+
+        const applyButtonZoom = (factor) => {
+            let oldZoom = canvas.getZoom();
+            let zoom = oldZoom * factor;
+            if (zoom > 20) zoom = 20;
+            if (zoom < 1) zoom = 1;
+            
+            canvas.setZoom(zoom);
+            if (canvas.baseWidth && canvas.baseHeight) {
+                canvas.setWidth(canvas.baseWidth * zoom);
+                canvas.setHeight(canvas.baseHeight * zoom);
+            }
+            
+            if (containerEl) {
+                const zoomRatio = zoom / oldZoom;
+                const centerX = containerEl.clientWidth / 2;
+                const centerY = containerEl.clientHeight / 2;
+                
+                containerEl.scrollLeft = (containerEl.scrollLeft + centerX) * zoomRatio - centerX;
+                containerEl.scrollTop = (containerEl.scrollTop + centerY) * zoomRatio - centerY;
+            }
+        };
+
+        if (btnIn) btnIn.addEventListener('click', () => applyButtonZoom(1.2));
+        if (btnOut) btnOut.addEventListener('click', () => applyButtonZoom(1 / 1.2));
+        if (btnReset) {
+            btnReset.addEventListener('click', () => {
+                canvas.setZoom(1);
+                if (canvas.baseWidth && canvas.baseHeight) {
+                    canvas.setWidth(canvas.baseWidth);
+                    canvas.setHeight(canvas.baseHeight);
+                }
+                if (containerEl) {
+                    containerEl.scrollLeft = 0;
+                    containerEl.scrollTop = 0;
+                }
+            });
+        }
+    }
+};
+
 window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modalContentEl, corners, renderPolyCallback) {
     if (!fabricImg) return;
 
@@ -15,12 +63,24 @@ window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modal
     const oldLeft = fabricImg.left || 0;
     const oldTop = fabricImg.top || 0;
 
+    fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    
+    // Temporarily suppress overflow to calculate visible client area unencumbered by canvas/scrollbars
+    containerEl.style.overflow = 'hidden';
+    fabricCanvas.setWidth(0);
+    fabricCanvas.setHeight(0);
+    
     void modalContentEl.offsetHeight;
     void containerEl.offsetHeight;
-
+    
     const targetW = containerEl.clientWidth;
     const targetH = containerEl.clientHeight;
-
+    
+    containerEl.style.overflow = 'auto';
+    
+    fabricCanvas.baseWidth = targetW;
+    fabricCanvas.baseHeight = targetH;
+    
     fabricCanvas.setWidth(targetW);
     fabricCanvas.setHeight(targetH);
     
@@ -67,7 +127,13 @@ window.setupModalCanvasImage = function(fabricCanvas, containerEl, fabricImg, mo
             modalContentEl.classList.add('portrait');
             modalContentEl.classList.remove('landscape');
         }
-        containerEl.style.aspectRatio = imgRatio;
+
+        // Apply ratio to the scroller wrapper if one exists, decoupling it from the inner canvas
+        if (containerEl.parentElement.classList.contains('canvas-scroller-wrapper')) {
+            containerEl.parentElement.style.aspectRatio = imgRatio;
+        } else {
+            containerEl.style.aspectRatio = imgRatio;
+        }
     }
 
     fabricImg.set({ selectable: false });
