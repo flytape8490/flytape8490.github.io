@@ -1,0 +1,38 @@
+.modal { 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: var(--modal-overlay); z-index: 100; 
+    display: flex; justify-content: center; align-items: center; 
+}
+
+.modal-content { 
+    background: var(--bg-panel); padding: 20px; border-radius: 12px; 
+    width: 90%; max-width: 700px; max-height: 95vh; 
+    display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+}
+
+.modal-content.editor-modal { max-width: 85vw; max-height: 85vh; padding: 20px; }
+.modal-content.editor-modal.landscape { width: 85vw; height: auto; }
+.modal-content.editor-modal.portrait { height: 85vh; width: fit-content; min-width: 650px; }
+
+.modal-header-bar { 
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; 
+    gap: 15px; margin-bottom: 15px; flex-shrink: 0; 
+}
+.modal-header-left { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+.modal-header-right { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+.modal-controls-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.modal-content.editor-modal > .control-group { flex-shrink: 0; }
+
+#art-canvas-container, #wall-scale-canvas-container { 
+    background: var(--bg-tray); border: 1px solid var(--border-color); 
+    border-radius: 6px; position: relative; overflow: hidden; 
+    margin-bottom: 15px; flex-shrink: 1; 
+}
+.modal-content.editor-modal.landscape #art-canvas-container, 
+.modal-content.editor-modal.landscape #wall-scale-canvas-container { 
+    width: 100%; height: auto; flex-grow: 1; 
+}
+.modal-content.editor-modal.portrait #art-canvas-container, 
+.modal-content.editor-modal.portrait #wall-scale-canvas-container { 
+    height: 100%; width: auto; min-height: 0; flex-grow: 1; 
+}

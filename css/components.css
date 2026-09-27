@@ -1,0 +1,42 @@
+.btn { 
+    padding: 8px 16px; background: var(--color-primary); color: var(--btn-text); 
+    border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    white-space: nowrap;
+}
+.btn:hover { opacity: 0.8; }
+.btn:disabled { background: var(--btn-idle); cursor: not-allowed; color: var(--text-muted); opacity: 1; }
+.btn-success { background: var(--color-success); }
+.btn-danger { background: var(--color-danger); }
+.btn-primary { background: var(--color-primary); }
+
+.icon-btn { 
+    background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-main); 
+    width: 30px; height: 30px; border-radius: 4px; cursor: pointer; display: flex; 
+    align-items: center; justify-content: center; font-weight: bold;
+}
+.icon-btn:hover { background: var(--color-primary); border-color: var(--color-primary); color: var(--btn-text); }
+
+.art-panel-button, .shape-btn {
+    background-color: var(--color-primary); border: 3px solid transparent;
+    color: var(--btn-text); opacity: 1; padding: 8px 14px; border-radius: 6px;
+    cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap;
+}
+.art-panel-button:hover, .shape-btn:hover { opacity: 0.8; }
+.art-panel-button.selected, .shape-btn.selected { border: 3px solid var(--text-main); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+
+.divider { width: 1px; height: 24px; background: var(--border-color); margin: 0 8px; }
+
+.instruction-text { color: var(--color-warning); font-weight: bold; font-size: 14px; }
+
+input[type="number"], input[type="text"] { 
+    padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); 
+    background: var(--input-bg); color: var(--text-main); max-width: 100px;
+}
+
+#context-menu { 
+    position: fixed; background: var(--bg-panel); border: 1px solid var(--border-color); 
+    border-radius: 6px; z-index: 9999; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+    padding: 5px 0; min-width: 150px; 
+}
+.ctx-item { padding: 10px 20px; cursor: pointer; color: var(--text-main); font-size: 14px; }
+.ctx-item:hover { background: var(--color-danger); color: var(--btn-text); }
