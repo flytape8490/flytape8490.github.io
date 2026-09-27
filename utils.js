@@ -101,6 +101,35 @@ window.swapDimensions = function(wId, hId) {
     }
 };
 
+window.calculateRotatedPolygon = function(corners, fabricImg) {
+    const scaleX = fabricImg.scaleX || 1;
+    const scaleY = fabricImg.scaleY || 1;
+    const leftOff = fabricImg.left || 0;
+    const topOff = fabricImg.top || 0;
+    const imgW = fabricImg.width;
+    const imgH = fabricImg.height;
+    
+    // Extract absolute relative points (0 to imgW/imgH)
+    const P = corners.map(c => ({
+        x: (c.left - leftOff) / scaleX,
+        y: (c.top - topOff) / scaleY
+    }));
+    
+    // Rotate coordinates 90 deg CW
+    const P_rot = P.map(p => ({
+        x: imgH - p.y,
+        y: p.x
+    }));
+    
+    // Shift indices to maintain [TL, TR, BR, BL] bounding integrity
+    return [
+        P_rot[3],
+        P_rot[0],
+        P_rot[1],
+        P_rot[2]
+    ];
+};
+
 window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modalContentEl, corners, renderPolyCallback) {
     if (!fabricImg) return;
 

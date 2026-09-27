@@ -49,7 +49,10 @@ window.openArtUpdate = function(trayId) {
 };
 
 document.getElementById('btn-rotate-art').addEventListener('click', () => {
-    if (!AppState.workingArtSrc) return;
+    if (!AppState.workingArtSrc || !AppState.artMaskImage) return;
+    
+    const forcedPolygon = window.calculateRotatedPolygon(AppState.artCorners, AppState.artMaskImage);
+    
     const img = new Image();
     img.onload = () => {
         window.rotateImageElement(img, (webpUrl) => {
@@ -70,11 +73,11 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
                     artCanvasContainer, 
                     fImg, 
                     document.querySelector('#art-modal .modal-content'),
-                    false // Tell utility this is a rotation, preserve modal dimensions
+                    false 
                 );
-                setupArtPerspectiveMode(true);
-                AppState.editingTrayId = tempId;
                 
+                AppState.editingTrayId = tempId;
+                setupArtPerspectiveMode(false, forcedPolygon);
                 window.swapDimensions('input-art-w', 'input-art-h');
             });
         });
@@ -96,8 +99,8 @@ window.addEventListener('resize', () => {
     }
 });
 
-function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
-    if (!AppState.editingTrayId && !ignoreSavedPolygon) {
+function setupArtPerspectiveMode(ignoreSavedPolygon = false, forcedPolygon = null) {
+    if (!AppState.editingTrayId && !ignoreSavedPolygon && !forcedPolygon) {
         AppState.currentArtShape = 'rect';
         document.getElementById('input-art-w').value = '';
         document.getElementById('input-art-h').value = '';
@@ -111,7 +114,15 @@ function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
     const imgH = AppState.artMaskImage.getScaledHeight();
 
     let points;
-    if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
+    if (forcedPolygon) {
+        points = forcedPolygon.map(p => ({
+            x: imgL + (p.x * AppState.artMaskImage.scaleX),
+            y: imgT + (p.y * AppState.artMaskImage.scaleY)
+        }));
+        if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId]) {
+            AppState.trayItems[AppState.editingTrayId].polygonP = forcedPolygon;
+        }
+    } else if (AppState.editingTrayId && AppState.trayItems[AppState.editingTrayId] && !ignoreSavedPolygon) {
         points = AppState.trayItems[AppState.editingTrayId].polygonP.map(p => ({
             x: imgL + (p.x * AppState.artMaskImage.scaleX),
             y: imgT + (p.y * AppState.artMaskImage.scaleY)

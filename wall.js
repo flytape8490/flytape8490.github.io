@@ -38,7 +38,9 @@ document.getElementById('file-wall').addEventListener('change', (e) => {
 });
 
 document.getElementById('btn-rotate-wall').addEventListener('click', () => {
-    if (!AppState.rawWallImg) return;
+    if (!AppState.rawWallImg || !AppState.wallMaskImage) return;
+    
+    const forcedPolygon = window.calculateRotatedPolygon(AppState.wallCorners, AppState.wallMaskImage);
     
     window.rotateImageElement(AppState.rawWallImg.getElement(), (webpUrl) => {
         fabric.Image.fromURL(webpUrl, (fImg) => {
@@ -54,10 +56,10 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
                 wallScaleCanvasContainer, 
                 fImg, 
                 document.querySelector('#wall-modal .modal-content'),
-                false // Tell utility this is a rotation, preserve modal dimensions
+                false 
             );
             
-            startWallPerspectiveMode(true);
+            startWallPerspectiveMode(false, forcedPolygon);
             window.swapDimensions('input-wall-w', 'input-wall-h');
         });
     });
@@ -101,7 +103,7 @@ function openWallModalWithImage(img) {
     });
 }
 
-function startWallPerspectiveMode(ignoreSavedPolygon = false) {
+function startWallPerspectiveMode(ignoreSavedPolygon = false, forcedPolygon = null) {
     AppState.mode = 'WALL_SCALE';
     const imgL = AppState.wallMaskImage.left;
     const imgT = AppState.wallMaskImage.top;
@@ -109,7 +111,15 @@ function startWallPerspectiveMode(ignoreSavedPolygon = false) {
     const imgH = AppState.wallMaskImage.getScaledHeight();
 
     let points;
-    if (AppState.isRedefiningWall && AppState.savedWallPolygon && !ignoreSavedPolygon) {
+    if (forcedPolygon) {
+        points = forcedPolygon.map(p => ({
+            x: imgL + (p.x * AppState.wallMaskImage.scaleX),
+            y: imgT + (p.y * AppState.wallMaskImage.scaleY)
+        }));
+        if (AppState.isRedefiningWall) {
+            AppState.savedWallPolygon = forcedPolygon; 
+        }
+    } else if (AppState.isRedefiningWall && AppState.savedWallPolygon && !ignoreSavedPolygon) {
         points = AppState.savedWallPolygon.map(p => ({
             x: imgL + (p.x * AppState.wallMaskImage.scaleX),
             y: imgT + (p.y * AppState.wallMaskImage.scaleY)
