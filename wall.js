@@ -84,6 +84,7 @@ function openWallModalWithImage(img) {
     } else {
         document.getElementById('input-wall-w').value = '';
         document.getElementById('input-wall-h').value = '';
+        document.getElementById('input-wall-w').focus();
     }
     
     fabric.Image.fromURL(img.getElement().src, (modalImg) => {

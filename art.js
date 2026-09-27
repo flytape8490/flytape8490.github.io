@@ -14,6 +14,7 @@ document.getElementById('file-art').addEventListener('change', (e) => {
                 document.querySelector('#art-modal .modal-content')
             );
             setupArtPerspectiveMode();
+            document.getElementById('input-art-w').focus();
         });
     });
     e.target.value = ''; 
