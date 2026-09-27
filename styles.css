@@ -231,7 +231,23 @@ input[type="number"], input[type="text"] {
     min-width: 650px; 
 }
 
-.modal-header-bar, .modal-content.editor-modal > .control-group {
+.modal-header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+.modal-header-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+}
+
+.modal-content.editor-modal > .control-group {
     flex-shrink: 0;
 }
 
