@@ -39,6 +39,31 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Custom Persistent Scrollbars (Standard attributes omitted to prevent native overlay fallback) */
+*::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+}
+
+*::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--text-muted);
+    border-radius: 8px;
+    border: 3px solid var(--bg-panel); /* Creates a padded pill effect */
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-main);
+}
+
+*::-webkit-scrollbar-corner {
+    background: var(--bg-panel);
+}
+
 body { 
     margin: 0; display: flex; flex-direction: column; height: 100vh; 
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
@@ -203,7 +228,7 @@ input[type="number"], input[type="text"] {
 .modal-content.editor-modal.portrait {
     height: 85vh;
     width: fit-content;
-    min-width: 650px; /* Safe width for headers */
+    min-width: 650px; 
 }
 
 .modal-header-bar, .modal-content.editor-modal > .control-group {
