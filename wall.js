@@ -230,15 +230,17 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             
             canvas.clear(); 
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+            
+            // Show Tray and Zoom controls BEFORE resizing so the container height calculates correctly
+            document.getElementById('ruler-h').style.display = 'flex';
+            document.getElementById('ruler-v').style.display = 'flex';
+            document.getElementById('tray').style.display = 'flex';
+            document.getElementById('zoom-controls').style.display = 'flex';
+            
             window.resizeCanvas();
             
             document.getElementById('btn-art').disabled = false;
             document.getElementById('btn-wall').textContent = "Change Wall";
-            document.getElementById('ruler-h').style.display = 'flex';
-            document.getElementById('ruler-v').style.display = 'flex';
-            
-            document.getElementById('tray').style.display = 'flex';
-            document.getElementById('zoom-controls').style.display = 'flex';
             
             if (window.drawRulers) window.drawRulers();
             closeWallModal();
