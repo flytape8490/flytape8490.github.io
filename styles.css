@@ -53,7 +53,7 @@
 *::-webkit-scrollbar-thumb {
     background-color: var(--text-muted);
     border-radius: 8px;
-    border: 3px solid var(--bg-panel); /* Creates a padded pill effect */
+    border: 3px solid var(--bg-panel); 
 }
 
 *::-webkit-scrollbar-thumb:hover {
@@ -82,6 +82,7 @@ body {
 .btn { 
     padding: 8px 16px; background: var(--color-primary); color: var(--btn-text); 
     border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    white-space: nowrap;
 }
 .btn:hover { opacity: 0.8; }
 .btn:disabled { background: var(--btn-idle); cursor: not-allowed; color: var(--text-muted); opacity: 1; }
@@ -89,7 +90,6 @@ body {
 .btn-danger { background: var(--color-danger); }
 .btn-primary { background: var(--color-primary); }
 
-/* Shape / Panel Buttons */
 .art-panel-button,
 .shape-btn {
     background-color: var(--color-primary);
@@ -101,6 +101,7 @@ body {
     cursor: pointer;
     font-weight: 600;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .art-panel-button:hover,
@@ -119,7 +120,7 @@ body {
 
 input[type="number"], input[type="text"] { 
     padding: 6px; border-radius: 4px; border: 1px solid var(--border-color); 
-    background: var(--input-bg); color: var(--text-main); 
+    background: var(--input-bg); color: var(--text-main); max-width: 100px;
 }
 
 #workspace { display: flex; flex-grow: 1; position: relative; width: 100%; overflow: hidden; }
@@ -133,7 +134,6 @@ input[type="number"], input[type="text"] {
     min-width: 0; min-height: 0; overflow: auto; 
 }
 
-/* Zoom Controls */
 #zoom-controls {
     position: absolute;
     bottom: 15px;
@@ -228,12 +228,14 @@ input[type="number"], input[type="text"] {
 .modal-content.editor-modal.portrait {
     height: 85vh;
     width: fit-content;
-    min-width: 650px; 
+    min-width: 320px; 
 }
 
+/* Flex Layout for Headers */
 .modal-header-bar {
     display: flex;
     flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
     gap: 15px;
     margin-bottom: 15px;
@@ -242,9 +244,23 @@ input[type="number"], input[type="text"] {
 
 .modal-header-left {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 min-content;
+}
+
+.modal-header-right {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 15px;
+}
+
+.modal-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .modal-content.editor-modal > .control-group {

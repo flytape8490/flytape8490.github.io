@@ -61,6 +61,20 @@ document.getElementById('btn-rotate-wall').addEventListener('click', () => {
     });
 });
 
+window.addEventListener('resize', () => {
+    const wallModalContent = document.querySelector('#wall-modal .modal-content');
+    if (wallModal.style.display === 'flex' && AppState.wallMaskImage) {
+        window.resizeEditorCanvas(
+            wallScaleCanvas, 
+            wallScaleCanvasContainer, 
+            AppState.wallMaskImage, 
+            wallModalContent, 
+            AppState.wallCorners, 
+            renderWallPoly
+        );
+    }
+});
+
 function openWallModalWithImage(img) {
     wallModal.style.display = 'flex';
     
@@ -231,7 +245,6 @@ document.getElementById('btn-set-scale').addEventListener('click', () => {
             canvas.clear(); 
             canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
             
-            // Show Tray and Zoom controls BEFORE resizing so the container height calculates correctly
             document.getElementById('ruler-h').style.display = 'flex';
             document.getElementById('ruler-v').style.display = 'flex';
             document.getElementById('tray').style.display = 'flex';

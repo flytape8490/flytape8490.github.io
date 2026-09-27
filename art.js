@@ -84,6 +84,20 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
     img.src = AppState.workingArtSrc;
 });
 
+window.addEventListener('resize', () => {
+    const artModalContent = document.querySelector('#art-modal .modal-content');
+    if (artModal.style.display === 'flex' && AppState.artMaskImage) {
+        window.resizeEditorCanvas(
+            artCanvas, 
+            artCanvasContainer, 
+            AppState.artMaskImage, 
+            artModalContent, 
+            AppState.artCorners, 
+            renderArtPoly
+        );
+    }
+});
+
 function setupArtPerspectiveMode(ignoreSavedPolygon = false) {
     if (!AppState.editingTrayId && !ignoreSavedPolygon) {
         AppState.currentArtShape = 'rect';
