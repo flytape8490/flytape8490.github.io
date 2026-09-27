@@ -50,15 +50,7 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
     if (!AppState.workingArtSrc) return;
     const img = new Image();
     img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.height;
-        c.height = img.width;
-        const ctx = c.getContext('2d');
-        ctx.translate(c.width/2, c.height/2);
-        ctx.rotate(90 * Math.PI/180);
-        ctx.drawImage(img, -img.width/2, -img.height/2);
-        
-        window.exportToWebP(c, (webpUrl) => {
+        window.rotateImageElement(img, (webpUrl) => {
             AppState.workingArtSrc = webpUrl;
             AppState.artCorners.forEach(corner => artCanvas.remove(corner));
             AppState.artCorners = [];
@@ -79,6 +71,8 @@ document.getElementById('btn-rotate-art').addEventListener('click', () => {
                 );
                 setupArtPerspectiveMode(true);
                 AppState.editingTrayId = tempId;
+                
+                window.swapDimensions('input-art-w', 'input-art-h');
             });
         });
     };

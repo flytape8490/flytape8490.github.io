@@ -76,6 +76,31 @@ window.processImageFile = function(file, callback) {
     reader.readAsDataURL(file);
 };
 
+window.rotateImageElement = function(imgSource, callback) {
+    const sourceW = imgSource.naturalWidth || imgSource.width;
+    const sourceH = imgSource.naturalHeight || imgSource.height;
+    
+    const c = document.createElement('canvas');
+    c.width = sourceH;
+    c.height = sourceW;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width/2, c.height/2);
+    ctx.rotate(90 * Math.PI/180);
+    ctx.drawImage(imgSource, -sourceW/2, -sourceH/2);
+    
+    window.exportToWebP(c, callback);
+};
+
+window.swapDimensions = function(wId, hId) {
+    const wInput = document.getElementById(wId);
+    const hInput = document.getElementById(hId);
+    if (wInput && hInput) {
+        const temp = wInput.value;
+        wInput.value = hInput.value;
+        hInput.value = temp;
+    }
+};
+
 window.resizeEditorCanvas = function(fabricCanvas, containerEl, fabricImg, modalContentEl, corners, renderPolyCallback) {
     if (!fabricImg) return;
 
